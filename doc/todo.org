@@ -1,0 +1,15 @@
+#+TITLE:     LSST triggeret observing over-write schedule simulator plan and to do list
+#+AUTHOR:    Eric H. Neilsen, Jr.
+#+EMAIL:     ehn@ehneilsen.net
+#+LANGUAGE:  en
+#+OPTIONS:   H:2 num:nil toc:nil \n:nil @:t ::t |:t ^:t *:t TeX:t LaTeX:t
+#+TODO: TODO(t) ACTIVE(a) PAUSED(p) WAITING(w) | MAYBE(m) LATER(l) DONE(d) ABANDONED(b)
+
+
+* ACTIVE Construct the project skeleton
+* TODO Generate event times
+* TODO Get start and end obs. times from exposure table or opsim4 code
+* TODO Get seeing and sky from opsim4 code
+* TODO Get filter from opsim4 code
+* TODO Get slew time estimates from opsim4 code
+[[/ssh:des70.fnal.gov:/data/des70.a/data/neilsen/singularity/opsim4-180320/home/opsim/repos/ts_observatory_model/doc/usage.rst]]
