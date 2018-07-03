@@ -1,6 +1,5 @@
-# WEBHOST := me@example.net
-# WEBBASE := /var/www/html
-# PGSERVICEFILE := etc/sample_pg_service.conf
+OPSIM_SKYMODEL_PYTHON := /data/des70.a/data/neilsen/singularity/opsim4-180320/home/opsim/repos/sims_skybrightness_pre/python/lsst/sims/skybrightness_pre/SkyModelPre.py
+SIMS_SKYBRIGHTNESS_DATA := /data/des70.a/data/neilsen/sims_skybrightness_pre/data
 
 ###############################################################################
 # Utility
@@ -41,21 +40,10 @@ data/munged/fieldID.txt: data/collected/fieldID.dat
 # Processing
 ###############################################################################
 
-process: data/processed/triggers.txt
+process: data/processed/events.txt
 
-data/processed/triggers.txt: python/random_triggers.py etc/triggers.conf
+data/processed/events.txt: python/random_events.py etc/events.conf
 	python $^ $@
-
-# process: data/processed/sample_summary.txt \
-# 	data/processed/sample_mean.txt
-
-# data/processed/sample_summary.txt: python/sample_summarize.py \
-# 		data/collected/sample_collected.txt
-# 	$^ $@
-
-# data/processed/sample_mean.txt: R/sample_mean.R \
-# 		data/munged/sample.RData
-# 	$^ $@
 
 ###############################################################################
 # Figure generation
@@ -68,42 +56,9 @@ data/processed/triggers.txt: python/random_triggers.py etc/triggers.conf
 # 	$^ $@
 
 ###############################################################################
-# Report generation
+# Tests
 ###############################################################################
 
-# report: report/sample_index.html
-
-# report/figures/%: figures/%
-# 	mkdir -p report/figures
-# 	cp $< $@
-
-# report/data/collected/%: data/collected/%
-# 	mkdir -p report/data/collected
-# 	cp $< $@
-
-# report/data/munged/%: data/munged/%
-# 	mkdir -p report/data/munged
-# 	cp $< $@
-
-# report/data/processed/%: data/processed/%
-# 	mkdir -p report/data/processed
-# 	cp $< $@
-
-# report/sample_index.html: report/sample_index.org \
-# 		report/data/processed/sample_summary.txt \
-# 		report/data/munged/sample.RData \
-# 		report/figures/sample_plot.png
-# 	emacs $< --batch -f org-html-export-to-html --kill
-
-###############################################################################
-# Publishing
-###############################################################################
-
-# .PHONY: pub_sample
-# pub_sample: report/sample_index.html
-# 	ssh ${WEBHOST} mkdir -p ${WEBBASE}/sample_report
-# 	rsync -av report/ ${WEBHOST}:${WEBBASE}/sample_report
-# 	ssh ${WEBHOST} mkdir -p ${WEBBASE}/sample_report/data
-# 	rsync -av data/ ${WEBHOST}:${WEBBASE}/sample_report/data
-# 	ssh ${WEBHOST} mkdir -p ${WEBBASE}/sample_report/figures
-# 	rsync -av figures/ ${WEBHOST}:${WEBBASE}/sample_report/figures
+.PHONY: test
+test :
+	cd test && python -m unittest && cd ..
