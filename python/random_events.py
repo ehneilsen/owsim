@@ -107,8 +107,10 @@ def episode_triggers(rate, volume, uptime, start_mjd, end_mjd):
     n = num_events(rate, volume, uptime, nyears)
     events = sample_sphere(n, truncate=True)
     events['mjd'] = np.random.uniform(start_mjd, end_mjd, n)
+    events['event_id'] = np.arange(n)
     events = events[['mjd', 'ra', 'decl']]
     events.sort_values('mjd', inplace=True)
+    events['event_id'] = np.arange(n)
     return events
 
 def triggers(rate, volume, uptime, start_mjd, end_mjd, episodes):
@@ -130,7 +132,7 @@ def triggers(rate, volume, uptime, start_mjd, end_mjd, episodes):
     for episode in range(episodes):
         events = episode_triggers(rate, volume, uptime, start_mjd, end_mjd)
         events['episode'] = episode
-        episode_events.append(events[['episode', 'mjd', 'ra', 'decl']])
+        episode_events.append(events[['episode', 'event_id', 'mjd', 'ra', 'decl']])
 
     events = pd.concat(episode_events, axis=0)
 

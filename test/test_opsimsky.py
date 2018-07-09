@@ -20,7 +20,7 @@ class TestLSSTSkyModel(unittest.TestCase):
         self.assertAlmostEqual(mag[self.test_band][0], self.test_mag)
 
     def test_airmass(self):
-        airmass = self.sky_model.returnAirmass(self.test_indx, indx=[self.test_indx])
+        airmass = self.sky_model.returnAirmass(self.test_mjd, indx=[self.test_indx])
         self.assertAlmostEqual(airmass[0], self.test_airmass)
         
 if __name__ == '__main__':

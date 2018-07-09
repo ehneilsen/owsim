@@ -1,3 +1,4 @@
+.EXPORT_ALL_VARIABLES:
 OPSIM_SKYMODEL_PYTHON := /data/des70.a/data/neilsen/singularity/opsim4-180320/home/opsim/repos/sims_skybrightness_pre/python/lsst/sims/skybrightness_pre/SkyModelPre.py
 SIMS_SKYBRIGHTNESS_DATA := /data/des70.a/data/neilsen/sims_skybrightness_pre/data
 
@@ -44,6 +45,10 @@ process: data/processed/events.txt
 
 data/processed/events.txt: python/random_events.py etc/events.conf
 	python $^ $@
+
+data/precessed/exposures.txt: python/followup.py etc/followup.conf \
+		data/processed/events.txt data/munged/fieldID.txt
+	python $^ $@ -e 0
 
 ###############################################################################
 # Figure generation
