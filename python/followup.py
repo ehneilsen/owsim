@@ -117,7 +117,11 @@ def schedule_followup(events, fields, config):
                                          obs_window=24*u.hour,
                                          scan_separation=1*u.hour,
                                          ignore_failure=True)
-                
+
+        scan_schedules.append(schedule)
+
+    schedule = pd.concat([s for s in scan_schedules],
+                         axis=0)    
     return schedule
 
 # classes
@@ -304,8 +308,6 @@ def main():
     info("Loading events")
     events = pd.read_table(args.events).query(f'episode == {episode}')
 
-    events = events.sample(5).sort_values(by='mjd')
-    
     if interactive:
         vars = globals().copy()
         vars.update(locals())
