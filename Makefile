@@ -41,12 +41,13 @@ data/munged/fieldID.txt: data/collected/fieldID.dat
 # Processing
 ###############################################################################
 
-process: data/processed/events.txt
+process: data/processed/events.txt \
+		data/processed/exposures.txt
 
 data/processed/events.txt: python/random_events.py etc/events.conf
 	python $^ $@
 
-data/precessed/exposures.txt: python/followup.py etc/followup.conf \
+data/processed/exposures.txt: python/followup.py etc/followup.conf \
 		data/processed/events.txt data/munged/fieldID.txt
 	python $^ $@ -e 0
 
