@@ -4,8 +4,10 @@ from copy import deepcopy
 import unittest
 from collections import OrderedDict
 
+import numpy as np
 import pandas as pd
 
+import astropy
 import astropy.units as u
 import astroplan
 from astroplan import Scheduler
@@ -161,3 +163,99 @@ class Schedule(astroplan.Schedule):
 
         df = pd.DataFrame(exposures)
         return df
+
+
+class LSSTTransitioner(astroplan.Transitioner):
+    """An astroplan.Transitioner following LSST Document-28382
+    """
+    def __call__(self, old_block, new_block, start_time, observer):
+        """Returns transition block between target blocks
+
+        Args:
+           - old_block : block before transition (`~astroplan.scheduling.ObservingBlock`)
+           - new_block : block after transition (`~astroplan.scheduling.ObservingBlock`)
+           - start_time : time of transition (`~astropy.time.Time`)
+           - observer : `astroplan.Observer`
+
+        Return:
+           `~astroplan.scheduling.TransitionBlock` or None
+        """
+        alt_az = astropy.coordinates.AltAz(obstime=start_time,
+                                           location=observer.location)
+        old_horizon = old_block.target.coord.transform_to(alt_az)
+        new_horizon = new_block.target.coord.transform_to(alt_az)
+        old_filter = old_block.configuration['filter']
+        new_filter = new_block.configuration['filter']
+
+        dalt = np.abs(old_horizon.alt.deg - new_horizon.alt.deg)
+        daz = np.abs(old_horizon.az.deg - new_horizon.az.deg)
+
+        # Eqn 1 of LSST Document-28382
+        az_slew = max(0.66*daz - 2, 3)
+
+        # Eqn 3 of LSST Document-28382
+        min_alt_slew = 37 if daz > 9 else 3
+        alt_slew = max(0.57*dalt + 3, min_alt_slew)
+
+        slew_seconds = max(alt_slew, az_slew)
+
+        if old_filter != new_filter:
+            duration_seconds = max(120, slew_seconds)
+        else:
+            duration_seconds = slew_seconds
+            
+        duration = duration_seconds * u.second
+            
+        transition_block = astroplan.TransitionBlock(
+            {'duration': duration}, start_time)
+
+        return transition_block
+        
+            
+class OpsimTransitioner(astroplan.Transitioner):
+    def __init__(self, telescope, lax_dome=False):
+        """Creates transition blocks between successive target blocks.
+
+        Args:
+           - telescope : an `lsst.sims.speedObservatory.telescope.Telescope` 
+                         instance
+           - lax_dome : if true, allow dome to creep
+
+        Return:
+           callable to create `~astroplan.scheduling.TransitionBlock` objects
+        """
+        self.telescope = telescope
+        self.lax_dome = lax_dome
+
+    def __call__(self, old_block, new_block, start_time, observer):
+        """Returns transition block between target blocks
+
+        Args:
+           - old_block : block before transition (`~astroplan.scheduling.ObservingBlock`)
+           - new_block : block after transition (`~astroplan.scheduling.ObservingBlock`)
+           - start_time : time of transition (`~astropy.time.Time`)
+           - observer : `astroplan.Observer`
+
+        Return:
+           `~astroplan.scheduling.TransitionBlock` or None
+        """
+        alt_az = astropy.coordinates.AltAz(obstime=start_time,
+                                           location=observer.location)
+        old_horizon = old_block.target.coord.transform_to(alt_az)
+        new_horizon = new_block.target.coord.transform_to(alt_az)
+        old_filter = old_block.configuration['filter']
+        new_filter = new_block.configuration['filter']
+        slew_time = self.telescope.calcSlewTime(
+            old_horizon.alt.radian, old_horizon.az.radian, old_filter,
+            new_horizon.alt.radian, new_horizon.az.radian, new_filter,
+            laxDome=self.lax_dome) * u.second
+
+        if slew_time == 0:
+            return None
+
+        transition_block = astroplan.TransitionBlock(
+            {'duration': slew_time}, start_time)
+
+        return transition_block
+        
+            

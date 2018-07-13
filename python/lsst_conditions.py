@@ -54,7 +54,7 @@ class SlewTimeSource(object):
             laxDome=self.lsst_lax_dome)
         return t
 
-
+    
 class CloudSource(object):
     def __init__(self, survey_start_time=DEFAULT_START_TIME):
         # Separate creation of CloudModel instance so we do not

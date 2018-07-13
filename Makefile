@@ -1,6 +1,5 @@
 .EXPORT_ALL_VARIABLES:
-OPSIM_SKYMODEL_PYTHON := /data/des70.a/data/neilsen/singularity/opsim4-180320/home/opsim/repos/sims_skybrightness_pre/python/lsst/sims/skybrightness_pre/SkyModelPre.py
-SIMS_SKYBRIGHTNESS_DATA := /data/des70.a/data/neilsen/sims_skybrightness_pre/data
+SIMS_SKYBRIGHTNESS_DATA := /home/opsim/repos/sims_skybrightness_pre/data
 
 ###############################################################################
 # Utility

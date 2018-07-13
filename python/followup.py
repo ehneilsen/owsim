@@ -21,6 +21,9 @@ import astroplan
 import apsupp
 from apsupp import DirectScheduler
 
+from lsst.sims.speedObservatory import Telescope
+
+
 # constants
 
 # exception classes
@@ -42,14 +45,11 @@ def schedule_followup(events, fields, config):
     observer =  astroplan.Observer.at_site(config['site']['name'])
 
     #
-    # Create an astroplan.Transitioner
+    # Create a Transitioner
     #
-    filter_change_time = {
-        'filter': {
-            'default': float(config['instrument']['filter_change_time']) * u.second}}
-    slew_rate = float(config['instrument']['slew_rate']) * u.deg/u.second
-    transitioner = astroplan.Transitioner(slew_rate, filter_change_time)
-
+    telescope = Telescope()
+    transitioner = apsupp.OpsimTransitioner(telescope)
+    
     #
     # Build astroplan constraints
     #
