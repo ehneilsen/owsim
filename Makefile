@@ -1,5 +1,5 @@
 .EXPORT_ALL_VARIABLES:
-SIMS_SKYBRIGHTNESS_DATA := /home/opsim/repos/sims_skybrightness_pre/data
+giSIMS_SKYBRIGHTNESS_DATA := /home/opsim/repos/sims_skybrightness_pre/data
 
 ###############################################################################
 # Utility
@@ -41,14 +41,20 @@ data/munged/fieldID.txt: data/collected/fieldID.dat
 ###############################################################################
 
 process: data/processed/events.txt \
-		data/processed/exposures.txt
+		data/processed/exposures.txt \
+		data/processed/conditions.txt
 
 data/processed/events.txt: python/random_events.py etc/events.conf
 	python $^ $@
 
-data/processed/exposures.txt: python/followup.py etc/followup.conf \
+data/processed/exposures.txt: python/apsupp.py python/followup.py etc/followup.conf \
 		data/processed/events.txt data/munged/fieldID.txt
-	python $^ $@ -e 0
+	python python/followup.py etc/followup.conf \
+		bldata/processed/events.txt data/munged/fieldID.txt $@ -e 0
+
+data/processed/conditions.txt: python/expcirc.py etc/expcirc.conf \
+		data/processed/exposures.txt
+	python $^ $@ 
 
 ###############################################################################
 # Figure generation

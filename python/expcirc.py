@@ -5,11 +5,13 @@ import readline
 import code
 import logging
 import sys
+import os
 from logging import debug, info, warning, error, critical
 from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
+import sqlite3
 
 import astropy
 import astropy.time
@@ -31,6 +33,47 @@ from lsst_conditions import DEFAULT_START_TIME
 #solar_system_ephemeris.set('jpl')
 
 # constants
+
+SUMMARYALLPROPS_TYPES = {
+    "observationId": int,
+    "night": int,
+    "observationStartTime": float,
+    "observationStartMJD": float,
+    "observationStartLST": float,
+    "filter": (np.str_, 1),
+    "proposalId": int,
+    "fieldRA": float,
+    "fieldDec": float,
+    "angle": float,
+    "altitude": float,
+    "azimuth": float,
+    "numExposures": int,
+    "visitTime": float,
+    "visitExposureTime": float,
+    "airmass": float,
+    "skyBrightness": float,
+    "cloud": float,
+    "seeingFwhm500": float,
+    "seeingFwhmGeom": float,
+    "seeingFwhmEff": float,
+    "fiveSigmaDepth": float,
+    "moonRA": float,
+    "moonDec": float,
+    "moonAlt": float,
+    "moonAz": float,
+    "moonDistance": float,
+    "moonPhase": float,
+    "sunRA": float,
+    "sunDec": float,
+    "sunAlt": float,
+    "sunAz": float,
+    "solarElong": float,
+    "slewTime": float,
+    "slewDistance": float,
+    "paraAngle": float,
+    "rotTelPos": float,
+    "rotSkyPos": float
+}
 
 # exception classes
 
@@ -127,19 +170,19 @@ def exposure_circumstances(exposures,
     circ_dict = OrderedDict((
         ('observationId', np.arange(len(exposures))),
         ('night', night),
-        ('observationStartTime', t),
+        ('observationStartTime', clocktime),
         ('observationStartMJD', exposures.mjd),
         ('observationStartLST', lst.deg),
         ('filter', exposures['filter']),
-        ('proposalid', proposal_id),
+        ('proposalId', proposal_id),
         ('fieldRA', exposures.ra),
         ('fieldDec', exposures.decl),
         ('angle', exposures.angle),
         ('altitude', alt_az_coords.alt.deg),
         ('azimuth', alt_az_coords.az.deg),
-        ('numExposures', 1),
-        ('visitTime', exposures.exptime + exposures.overhead),
-        ('visetExposureTime', exposures.exptime),
+        ('numExposures', exposures.nexp.astype(int)),
+        ('visitTime', exposures.duration),
+        ('visitExposureTime', exposures.exptime),
         ('airmass', airmass),
         ('skyBrightness', sky_brightness),
         ('cloud', clouds),
@@ -147,13 +190,13 @@ def exposure_circumstances(exposures,
         ('seeingFwhmGeom', seeing.fwhmGeom.values),
         ('seeingFwhmEff', seeing.fwhmEff.values),
         ('fiveSigmaDepth', five_sigma_depth),
-        ('moonRa', moon_coords.ra.deg),
+        ('moonRA', moon_coords.ra.deg),
         ('moonDec', moon_coords.dec.deg),
         ('moonAlt', moon_alt_az_coords.alt.deg),
         ('moonAz', moon_alt_az_coords.az.deg),
         ('moonDistance', moon_distance),
         ('moonPhase', moon_phase),
-        ('sunRa', sun_coords.ra.deg),
+        ('sunRA', sun_coords.ra.deg),
         ('sunDec', sun_coords.dec.deg),
         ('sunAlt', sun_alt_az_coords.alt.deg),
         ('sunAz', sun_alt_az_coords.az.deg),
@@ -166,6 +209,7 @@ def exposure_circumstances(exposures,
         ))
 
     circumstances = pd.DataFrame(circ_dict, index=exposures.index.values)
+    circumstances = circumstances.astype(SUMMARYALLPROPS_TYPES)
     return circumstances
 
 # classes
@@ -228,7 +272,6 @@ def main():
     exposures['overhead'] = 0
 
     if interactive:
-        #expsamp = exposures.sample(5)
         expsamp = exposures.iloc[:5]
         print("exposure_circumstances(expsamp, 1, site)")
         
@@ -241,7 +284,13 @@ def main():
         circumstances = exposure_circumstances(exposures, 1, site)
         
         info("Writing followup exposures")
-        circumstances.to_csv(circumstances_fname, sep="\t", index=False, header=True)
+        _, extension = os.path.splitext(circumstances_fname)
+        if extension == '.db':
+            conn = sqlite3.connect(circumstances_fname)
+            circumstances.to_sql("SummaryAllProps", conn)
+            conn.close()
+        else:
+            circumstances.to_csv(circumstances_fname, sep="\t", index=False, header=True)
         
 
     return 0

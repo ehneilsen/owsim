@@ -51,7 +51,18 @@ class DirectScheduler(Scheduler):
                     transition_block = self.transitioner(
                         schedule.scheduled_blocks[-1], block,
                         current_time, self.observer)
-                    block_start += transition_block.duration
+
+                    # We can start the transition block while reading out,
+                    # if it is longer than the readout.
+                    readout_time = schedule.scheduled_blocks[-1].readout_time
+                    if readout_time < transition_block.duration:
+                        short_duration = transition_block.duration - readout_time
+                        start_time = transition_block.start_time
+                        transition_block = astroplan.TransitionBlock(
+                            {'duration': short_duration}, start_time)
+                        block_start += transition_block.duration
+                    else:
+                        transition_block = None
                 else:
                     transition_block = None
 
@@ -136,21 +147,21 @@ class Schedule(astroplan.Schedule):
         decl = []
         exptime = []
         band = []
+        nexp = []
+        duration = []
         for slot in self.slots:
             if hasattr(slot.block, 'target'):
                 block = slot.block
                 target = block.target
-                for exp_num in range(block.number_exposures):
-                    frac_exposures = exp_num/block.number_exposures
-                    exp_start_time = slot.start \
-                                     + exp_num * block.duration * frac_exposures
-                    start_time.append(exp_start_time.iso.replace(' ', 'T'))
-                    mjd.append(exp_start_time.mjd)
-                    target_name.append(target.name)
-                    ra.append(target.ra.deg)
-                    decl.append(target.dec.deg)
-                    band.append(block.configuration['filter'])
-                    exptime.append(block.time_per_exposure.to(u.second).value)
+                start_time.append(slot.start.isot)
+                mjd.append(slot.start.mjd)
+                target_name.append(target.name)
+                ra.append(target.ra.deg)
+                decl.append(target.dec.deg)
+                band.append(block.configuration['filter'])
+                exptime.append(block.number_exposures*block.time_per_exposure.to(u.second).value)
+                duration.append(block.duration.to(u.second).value)
+                nexp.append(int(block.number_exposures))
 
         exposures = OrderedDict()
         exposures['start_time'] = start_time
@@ -160,6 +171,8 @@ class Schedule(astroplan.Schedule):
         exposures['decl'] = decl
         exposures['filter'] = band
         exposures['exptime'] = exptime
+        exposures['nexp'] = nexp
+        exposures['duration'] = duration
 
         df = pd.DataFrame(exposures)
         return df
