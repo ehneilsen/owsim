@@ -41,7 +41,7 @@ SUMMARYALLPROPS_TYPES = {
     "observationStartMJD": float,
     "observationStartLST": float,
     "filter": (np.str_, 1),
-    "proposalId": int,
+    "proposals": (np.str_, 150),
     "fieldId": int,
     "fieldRA": float,
     "fieldDec": float,
@@ -82,11 +82,9 @@ SUMMARYALLPROPS_TYPES = {
 
 
 def exposure_circumstances(exposures,
-                           proposal_id = 1,
                            site=EarthLocation.of_site('Cerro Pachon'),
                            survey_start_time=DEFAULT_START_TIME,
                            sky_data_path=SKY_DATA_PATH):
-
     info('Calculating astropy time')
     t = astropy.time.Time(
         exposures.mjd, format='mjd', scale='utc', location=site)
@@ -175,8 +173,8 @@ def exposure_circumstances(exposures,
         ('observationStartMJD', exposures.mjd),
         ('observationStartLST', lst.deg),
         ('filter', exposures['filter']),
-        ('proposalId', proposal_id),
-        ('fieldId', np.int(exposures.name)),
+        ('proposals', exposures.proposals),
+        ('fieldId', exposures.target.astype(int)),
         ('fieldRA', exposures.ra),
         ('fieldDec', exposures.decl),
         ('angle', exposures.angle),
@@ -269,13 +267,13 @@ def main():
     site = EarthLocation.of_site(config['site']['name'])
     
     info("Loading exposures")
-    exposures = pd.read_table(args.exposures)
+    exposures = pd.read_table(args.exposures, sep=" ")
     exposures['angle'] = 0
     exposures['overhead'] = 0
 
     if interactive:
         expsamp = exposures.iloc[:5]
-        print("exposure_circumstances(expsamp, 1, site)")
+        print("exposure_circumstances(expsamp, site)")
         
         vars = globals().copy()
         vars.update(locals())
@@ -283,16 +281,11 @@ def main():
         shell.interact()
     else:
         info("Scheduling followup exposures")
-        circumstances = exposure_circumstances(exposures, 1, site)
+        circumstances = exposure_circumstances(exposures, site)
         
         info("Writing followup exposures")
         _, extension = os.path.splitext(circumstances_fname)
-        if extension == '.db':
-            conn = sqlite3.connect(circumstances_fname)
-            circumstances.to_sql("SummaryAllProps", conn)
-            conn.close()
-        else:
-            circumstances.to_csv(circumstances_fname, sep="\t", index=False, header=True)
+        circumstances.to_csv(circumstances_fname, sep=" ", index=False, header=True)
         
 
     return 0

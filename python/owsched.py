@@ -1,4 +1,8 @@
 """Create tables of followup exposures"""
+import os
+import sys
+import argparse
+import logging
 from collections import namedtuple
 from logging import debug, info, warning, error, critical
 import contextlib
@@ -12,7 +16,7 @@ import pandas as pd
 
 # interface functions
 
-def overwrite_schedule(reference_schedule, replacements, gap=120):
+def overwrite_schedule(reference_schedule, replacement_sequences, gap=120):
     """
 
     Args:
@@ -21,7 +25,6 @@ def overwrite_schedule(reference_schedule, replacements, gap=120):
        - gap :: gap duration (in seconds) between reference and overwrite visits
     """
     prior_clock = 0
-    replacement_sequences = split_into_sequences(replacements)
     subsequences = []
     for _, replacement_sequence in replacement_sequences:
         # Find the start time of the next replacement sequence
@@ -48,21 +51,8 @@ def overwrite_schedule(reference_schedule, replacements, gap=120):
 
     all_visits = pd.concat(subsequences)
 
-    # import code
-    # vars = globals().copy()
-    # vars.update(locals())
-    # shell = code.InteractiveConsole(vars)
-    # shell.interact()        
-
     return all_visits
         
-
-# classes
-
-OpsimDatabaseDataFrames = namedtuple('OpsimDatabaseDataFrames',
-                                     ('SummaryAllProps', 'Proposal'))
-
-# internal functions & classes
 
 def query_summary(fname):
     """Query and opsim database for exposures
@@ -88,7 +78,7 @@ def split_into_sequences(exposures, min_gap=120):
     """Split a set of exposures into sequences at gaps
 
     Args:
-       - exposures :: the pandas.DataFrame of exposures to split
+       - exposures :: the pandas.DataFrame of visits to split
        - min_gap :: the minimum gap between sequences, in seconds
 
     Returns:
@@ -103,6 +93,48 @@ def split_into_sequences(exposures, min_gap=120):
     return sequences
 
 
+def expand_by_proposal(exposures, proposals):
+    """Split visits into separate rows by proposal
+    
+    Args:
+       - exposures :: a pandas.DataFrame of visits to split by proposal
+       - proposals :: a pandas.DataFrame of proposals
+
+    Returns:
+       a pandas.DataFrame of split visits
+    """
+    new_proposals = proposals.copy()
+    visits = []
+    for _, visit in exposures.iterrows():
+        for proposal_name in visit.proposals.split():
+            visit = visit.copy()
+            try:
+                matching_proposals = (new_proposals
+                                      .set_index('propName')
+                                      .loc[proposal_name]
+                                      .propId)
+            except KeyError:
+                next_propid = proposals.propId.max() + 1
+                new_proposals = new_proposals.append(
+                    {'propId': next_propid, 'propName': proposal_name},
+                    ignore_index=True)
+                matching_proposals = (new_proposals
+                                      .set_index('propName')
+                                      .loc[proposal_name]
+                                      .propId)
+            visit['proposalId'] = matching_proposals
+            visit.drop('proposals')
+            visits.append(visit)
+
+    split_visits = pd.DataFrame.from_records(visits)
+    return split_visits, new_proposals
+
+# classes
+
+OpsimDatabaseDataFrames = namedtuple('OpsimDatabaseDataFrames',
+                                     ('SummaryAllProps', 'Proposal'))
+
+# internal functions & classes
 
 def main():
     parser = argparse.ArgumentParser()
@@ -125,8 +157,10 @@ def main():
         logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
     interactive = args.interactive
-    exposure_fname = args.exposures
-    episode = args.episode
+    overwrote_db = args.overwrote_db
+    if os.path.isfile(overwrote_db):
+        error(f'File {overwrote_db} already exists; not overwriting')
+        return 1
     
 #    config = ConfigParser()
 #    config.read(args.config)
@@ -135,8 +169,7 @@ def main():
     reference_sim = query_summary(args.reference_db)
 
     info("Loading replacement exposures")
-    replacements = pd.read_table(args.replacements)
-    replacements.proposalId = 9999
+    replacements = pd.read_table(args.replacements, sep=' ')
     
     if interactive:
         vars = globals().copy()
@@ -144,11 +177,21 @@ def main():
         shell = code.InteractiveConsole(vars)
         shell.interact()
     else:
-        info("Scheduling followup exposures")
-        exposures = schedule_followup(events, fields, config)
-
-        info("Writing followup exposures")
-        exposures.to_csv(exposure_fname, sep="\t", index=False, header=True)
+        info("Replicating visits by proposal")
+        visits_by_proposal, proposals = expand_by_proposal(
+            replacements, reference_sim.Proposal)
+        info("Splitting replacements into sequences")
+        replacement_sequences = split_into_sequences(visits_by_proposal)
+        info("Creating overwritten schedule")
+        schedule = overwrite_schedule(
+            reference_sim.SummaryAllProps, replacement_sequences)
+        
+        with contextlib.closing(sqlite3.connect(overwrote_db)) as conn:
+            info("Writing revised proposals")
+            proposals.to_sql('Proposal', conn)
+            
+            info("Writing the revised schedule")
+            schedule.to_sql('SummaryAllProps', conn)
         
 
     return 0

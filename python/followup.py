@@ -5,6 +5,7 @@ import readline
 import code
 import logging
 import sys
+import csv
 from logging import debug, info, warning, error, critical
 from collections import OrderedDict
 
@@ -121,7 +122,9 @@ def schedule_followup(events, fields, config):
         scan_schedules.append(schedule)
 
     schedule = pd.concat([s for s in scan_schedules],
-                         axis=0)    
+                         axis=0)
+
+    schedule['proposals'] = config['scheduler']['proposals']
     return schedule
 
 # classes
@@ -318,7 +321,10 @@ def main():
         exposures = schedule_followup(events, fields, config)
 
         info("Writing followup exposures")
-        exposures.to_csv(exposure_fname, sep="\t", index=False, header=True)
+        exposures.to_csv(exposure_fname,
+                         sep=" ",
+                         quoting=csv.QUOTE_MINIMAL,
+                         index=False, header=True)
         
 
     return 0
