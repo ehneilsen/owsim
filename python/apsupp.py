@@ -14,7 +14,6 @@ from astroplan import Scheduler
 import logging
 from logging import debug, info, warning, error, critical
 
-#logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
 
 class DirectScheduler(Scheduler):
     """astroplan.Scheduler that schedules in the order provided
@@ -25,12 +24,15 @@ class DirectScheduler(Scheduler):
     appropriate transition blocks between supplied target blocks.
 
     """
-    
+
     def _make_schedule(self, blocks):
 
-        global_constraints = [] if self.constraints is None else self.constraints
+        global_constraints = [] if self.constraints is None \
+                             else self.constraints
+
         def block_allowed(block, t):
-            block_constraints = [] if block.constraints is None else block.constraints
+            block_constraints = [] if block.constraints is None \
+                                else block.constraints
             constraints = set(global_constraints + block_constraints)
             for constraint in constraints:
                 if not constraint(self.observer, block.target, t):
@@ -38,11 +40,11 @@ class DirectScheduler(Scheduler):
             return True
 
         def try_schedule(start_time, end_time):
-            debug(f'Testing in slot {start_time.iso} to {end_time.iso}') 
+            debug(f'Testing in slot {start_time.iso} to {end_time.iso}')
             schedule = Schedule(start_time, end_time)
             if end_time - start_time < 3*u.second:
                 return 0, schedule
-            
+
             current_time = start_time + 0.01*u.second
             number_scheduled = 0
             for block in blocks:
@@ -56,7 +58,7 @@ class DirectScheduler(Scheduler):
                     # if it is longer than the readout.
                     readout_time = schedule.scheduled_blocks[-1].readout_time
                     if readout_time < transition_block.duration:
-                        short_duration = transition_block.duration - readout_time
+                        short_duration = transition_block.duration-readout_time
                         start_time = transition_block.start_time
                         transition_block = astroplan.TransitionBlock(
                             {'duration': short_duration}, start_time)
@@ -70,7 +72,7 @@ class DirectScheduler(Scheduler):
                 block_end = block_start + block.duration
                 if block_end > end_time:
                     continue
-                    
+
                 if block_allowed(block, block_start):
                     # Add a transition block, if needed
                     if transition_block is not None:
@@ -78,13 +80,12 @@ class DirectScheduler(Scheduler):
                         schedule.insert_slot(current_time, transition_block)
                         current_time += transition_block.duration
 
-                    debug(f'Testing insert at {current_time.iso} for {block.duration}') 
+                    debug(f'Testing insert at {current_time.iso} for {block.duration}')
                     schedule.insert_slot(current_time, block)
                     number_scheduled += 1
                     current_time += block.duration
-                    
-            return number_scheduled, schedule
 
+            return number_scheduled, schedule
 
         # Work through open slots and start times until we find one at
         # which we can observe the whole set.  If there are none,
@@ -97,7 +98,8 @@ class DirectScheduler(Scheduler):
             current_time = start_time
 
             while number_scheduled < len(blocks) and start_time < slot.end:
-                new_number_scheduled, schedule = try_schedule(start_time, slot.end)
+                new_number_scheduled, schedule = try_schedule(
+                    start_time, slot.end)
                 if new_number_scheduled > number_scheduled:
                     number_scheduled = new_number_scheduled
                     best_schedule = schedule
@@ -109,7 +111,7 @@ class DirectScheduler(Scheduler):
 
         if best_schedule is None:
             return
-            
+
         # Find the last occupied slot before the first we are trying to
         # schedule to add a transition, if necessary
         prior_slot = None
@@ -130,8 +132,8 @@ class DirectScheduler(Scheduler):
             transition_end = proir_slot.end + transition_block.duration
             if transition_end > first_slot.start:
                 sched_shift = transition_end - first_slot.start
-                self.schedule.insert_slot(prior_slot.end, transition_block)            
-        
+                self.schedule.insert_slot(prior_slot.end, transition_block)
+
         # Add blocks from the best schedule to the final schedule
         for slot in best_schedule.slots:
             if slot.block is not None:
@@ -159,7 +161,8 @@ class Schedule(astroplan.Schedule):
                 ra.append(target.ra.deg)
                 decl.append(target.dec.deg)
                 band.append(block.configuration['filter'])
-                exptime.append(block.number_exposures*block.time_per_exposure.to(u.second).value)
+                exptime.append(block.number_exposures
+                               * block.time_per_exposure.to(u.second).value)
                 duration.append(block.duration.to(u.second).value)
                 nexp.append(int(block.number_exposures))
 
@@ -185,8 +188,10 @@ class LSSTTransitioner(astroplan.Transitioner):
         """Returns transition block between target blocks
 
         Args:
-           - old_block : block before transition (`~astroplan.scheduling.ObservingBlock`)
-           - new_block : block after transition (`~astroplan.scheduling.ObservingBlock`)
+           - old_block : block before transition
+                         (`~astroplan.scheduling.ObservingBlock`)
+           - new_block : block after transition
+                         (`~astroplan.scheduling.ObservingBlock`)
            - start_time : time of transition (`~astropy.time.Time`)
            - observer : `astroplan.Observer`
 
@@ -216,21 +221,21 @@ class LSSTTransitioner(astroplan.Transitioner):
             duration_seconds = max(120, slew_seconds)
         else:
             duration_seconds = slew_seconds
-            
+
         duration = duration_seconds * u.second
-            
+
         transition_block = astroplan.TransitionBlock(
             {'duration': duration}, start_time)
 
         return transition_block
-        
-            
+
+
 class OpsimTransitioner(astroplan.Transitioner):
     def __init__(self, telescope, lax_dome=False):
         """Creates transition blocks between successive target blocks.
 
         Args:
-           - telescope : an `lsst.sims.speedObservatory.telescope.Telescope` 
+           - telescope : an `lsst.sims.speedObservatory.telescope.Telescope`
                          instance
            - lax_dome : if true, allow dome to creep
 
@@ -244,8 +249,10 @@ class OpsimTransitioner(astroplan.Transitioner):
         """Returns transition block between target blocks
 
         Args:
-           - old_block : block before transition (`~astroplan.scheduling.ObservingBlock`)
-           - new_block : block after transition (`~astroplan.scheduling.ObservingBlock`)
+           - old_block : block before transition
+                         (`~astroplan.scheduling.ObservingBlock`)
+           - new_block : block after transition
+                         (`~astroplan.scheduling.ObservingBlock`)
            - start_time : time of transition (`~astropy.time.Time`)
            - observer : `astroplan.Observer`
 
@@ -270,5 +277,3 @@ class OpsimTransitioner(astroplan.Transitioner):
             {'duration': slew_time}, start_time)
 
         return transition_block
-        
-            

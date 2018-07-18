@@ -1,4 +1,4 @@
-"""tests for apsupp"""
+"""tests for followup."""
 import unittest
 from configparser import ConfigParser
 
@@ -12,6 +12,7 @@ import astroplan
 import followup
 
 rand_seed = 6463
+
 
 class TestFollowup(unittest.TestCase):
     def setUp(self):
@@ -31,18 +32,20 @@ class TestFollowup(unittest.TestCase):
         ef = followup.find_event_fields(self.events, self.fields, 60)
 
         event_coords = SkyCoord(ef.ra.values*u.deg, ef.decl.values*u.deg)
-        field_coords = SkyCoord(ef.fieldRA.values*u.deg, ef.fieldDec.values*u.deg)
+        field_coords = SkyCoord(ef.fieldRA.values*u.deg,
+                                ef.fieldDec.values*u.deg)
         distances = event_coords.separation(field_coords)
         self.assertLess(np.max(distances), 6.2*u.deg)
-        
+
         num_matches_by_event = ef.groupby(level=0).mjd.count()
         self.assertLess(num_matches_by_event.max(), self.most_matches)
         self.assertGreater(num_matches_by_event.min(), self.least_matches)
         self.assertEqual(len(num_matches_by_event), len(self.events))
-        
+
     def test_followup_targets(self):
         sample_events = self.events.sample(3)
-        event_targets = followup.followup_targets(sample_events, self.fields, 60)
+        event_targets = followup.followup_targets(
+            sample_events, self.fields, 60)
         for event, targets in event_targets:
             self.assertIsInstance(event, pd.Series)
             for target in targets:
@@ -61,7 +64,7 @@ class TestFollowup(unittest.TestCase):
                 continue
             else:
                 checked_events += 1
-            
+
             # Time since event, in days
             exposures['dt'] = (exposures.mjd - sample_events.iloc[0].mjd)
 
@@ -88,6 +91,7 @@ class TestFollowup(unittest.TestCase):
                 # Two night strategy
                 scan2 = exposures.query('dt >= 1')
                 self.assertLessEqual(len(scan2.dt), len(scan1.dt))
-            
+
+
 if __name__ == '__main__':
     unittest.main()

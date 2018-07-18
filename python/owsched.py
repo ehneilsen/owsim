@@ -16,19 +16,23 @@ import pandas as pd
 
 # interface functions
 
+
 def overwrite_schedule(reference_schedule, replacement_sequences, gap=120):
-    """
+    """Create a new schedule, replacing visits in a reference schedule.
 
     Args:
        - reference_schedule :: a pandas.DataFrame with the original visits
-       - replacements :: a pandas.DataFrame with replacement visits
-       - gap :: gap duration (in seconds) between reference and overwrite visits
+       - replacements :: pandas.GroupBy of replacement visit sequences
+       - gap :: gap duration (in seconds) between reference
+                and overwrite visits
     """
     prior_clock = 0
     subsequences = []
     for _, replacement_sequence in replacement_sequences:
         # Find the start time of the next replacement sequence
-        replacement_start_clock = replacement_sequence.observationStartTime.min()
+        replacement_start_clock = (replacement_sequence
+                                   .observationStartTime
+                                   .min())
 
         # Find visits in the reference schedule between the end of the previous
         # replacement sequence and the start of the next one, and add them
@@ -42,8 +46,10 @@ def overwrite_schedule(reference_schedule, replacement_sequences, gap=120):
         subsequences.append(replacement_sequence)
 
         # Record the end for use in determining the next window.
-        prior_clock = subsequences[-1].eval('observationStartTime+visitTime').max()
-        
+        prior_clock = (subsequences[-1]
+                       .eval('observationStartTime+visitTime')
+                       .max())
+
     ref_subset = reference_schedule.query(
         f'(observationStartTime > {prior_clock+gap})')
     if len(ref_subset) > 0:
@@ -52,7 +58,7 @@ def overwrite_schedule(reference_schedule, replacement_sequences, gap=120):
     all_visits = pd.concat(subsequences)
 
     return all_visits
-        
+
 
 def query_summary(fname):
     """Query and opsim database for exposures
@@ -95,7 +101,7 @@ def split_into_sequences(exposures, min_gap=120):
 
 def expand_by_proposal(exposures, proposals):
     """Split visits into separate rows by proposal
-    
+
     Args:
        - exposures :: a pandas.DataFrame of visits to split by proposal
        - proposals :: a pandas.DataFrame of proposals
@@ -129,19 +135,23 @@ def expand_by_proposal(exposures, proposals):
     split_visits = pd.DataFrame.from_records(visits)
     return split_visits, new_proposals
 
+
 # classes
 
 OpsimDatabaseDataFrames = namedtuple('OpsimDatabaseDataFrames',
                                      ('SummaryAllProps', 'Proposal'))
 
+
 # internal functions & classes
 
 def main():
     parser = argparse.ArgumentParser()
-#    parser.add_argument('config', help='configuration file name')
-    parser.add_argument('reference_db', help='database file for the reference simulation')
-    parser.add_argument('replacements', help='table of exposures to add to reference database')
-    parser.add_argument('overwrote_db', help='database file with exposures overwritten')
+    parser.add_argument('reference_db',
+                        help='database file for the reference simulation')
+    parser.add_argument('replacements',
+                        help='table of exposures to add to reference database')
+    parser.add_argument('overwrote_db',
+                        help='database file with exposures overwritten')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Print less information')
     parser.add_argument('-v', '--verbose', action='store_true',
@@ -151,26 +161,25 @@ def main():
 
     args = parser.parse_args()
     if not args.quiet:
-        logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
+        logging.basicConfig(format='%(asctime)s %(message)s',
+                            level=logging.INFO)
 
     if args.verbose:
-        logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG)
+        logging.basicConfig(format='%(asctime)s %(message)s',
+                            level=logging.DEBUG)
 
     interactive = args.interactive
     overwrote_db = args.overwrote_db
     if os.path.isfile(overwrote_db):
         error(f'File {overwrote_db} already exists; not overwriting')
         return 1
-    
-#    config = ConfigParser()
-#    config.read(args.config)
 
     info("Loading reference db")
     reference_sim = query_summary(args.reference_db)
 
     info("Loading replacement exposures")
     replacements = pd.read_table(args.replacements, sep=' ')
-    
+
     if interactive:
         vars = globals().copy()
         vars.update(locals())
@@ -185,21 +194,17 @@ def main():
         info("Creating overwritten schedule")
         schedule = overwrite_schedule(
             reference_sim.SummaryAllProps, replacement_sequences)
-        
+
         with contextlib.closing(sqlite3.connect(overwrote_db)) as conn:
             info("Writing revised proposals")
             proposals.to_sql('Proposal', conn)
-            
+
             info("Writing the revised schedule")
             schedule.to_sql('SummaryAllProps', conn)
-        
 
     return 0
 
 
 if __name__ == '__main__':
-    status = main()    
+    status = main()
     sys.exit(status)
-
-
-    

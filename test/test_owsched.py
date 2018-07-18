@@ -8,11 +8,6 @@ import owsched
 test_db_file_name = 'data/baseline2018a.db'
 test_replacement_exposures_fname = 'data/conditions.txt'
 
-# import code
-# vars = globals().copy()
-# vars.update(locals())
-# shell = code.InteractiveConsole(vars)
-# shell.interact()        
 
 class TestOwSched(unittest.TestCase):
 
@@ -54,28 +49,31 @@ class TestOwSched(unittest.TestCase):
         schedule = owsched.overwrite_schedule(
             reference, replacement_sequences)
         schedule.sort_values('observationStartTime', inplace=True)
-        
+
         # Check that we added the right number of visits
         added_visits = schedule.query(f'proposalId == {test_proposal_id}')
         self.assertEqual(len(added_visits), len(replacements))
 
-        # If a visit is associated with multiple programs, it may appear once for
-        # each program.
+        # If a visit is associated with multiple programs, it may
+        # appear once for each program.
         unique_schedule = schedule.drop_duplicates(subset=['observationId'])
 
         # Check to make sure there are no overlapping exposures
-        previous_end = unique_schedule.eval('observationStartTime + visitTime')[:-1]
-        next_start = unique_schedule.eval('observationStartTime - slewTime')[1:]
+        previous_end = (unique_schedule
+                        .eval('observationStartTime + visitTime')[:-1])
+        next_start = (unique_schedule
+                      .eval('observationStartTime - slewTime')[1:])
         self.assertLess(np.min(next_start.values - previous_end.values), -1.0)
-
 
     def test_expand_by_proposal(self):
         proposals = owsched.query_summary(test_db_file_name).Proposal
         replacements = pd.read_table(test_replacement_exposures_fname, sep=' ')
-        prop_visits, new_proposals = owsched.expand_by_proposal(replacements, proposals)
+        prop_visits, new_proposals = owsched.expand_by_proposal(
+            replacements, proposals)
 
         expected_num = replacements.proposals.str.split().apply(len).sum()
         self.assertEqual(len(prop_visits), expected_num)
-        
+
+
 if __name__ == '__main__':
     unittest.main()
