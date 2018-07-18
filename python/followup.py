@@ -1,4 +1,4 @@
-"""Create tables of followup exposures."""
+"""Create tables of followup visits."""
 import argparse
 from configparser import ConfigParser
 import readline
@@ -99,7 +99,7 @@ def schedule_followup(events, fields, config):
         return block
 
     # Schedule follow-up for each event
-    latest_exposure_end = astropy.time.Time(0, format='mjd')
+    latest_visit_end = astropy.time.Time(0, format='mjd')
     search_area = float(config['search']['area'])
     scan_schedules = []
     for event, targets in followup_targets(events, fields, search_area):
@@ -109,7 +109,7 @@ def schedule_followup(events, fields, config):
         info(f'Scheduling event {event.event_id} at {event.ra}, {event.decl} on {event_time.iso}')
 
         # Only work on one event at a time
-        if trigger_time < latest_exposure_end:
+        if trigger_time < latest_visit_end:
             continue
 
         # Attempt the first strategy -- two scans the area in one
@@ -249,7 +249,7 @@ def two_scan_schedule(scheduler, obsblocks, trigger_time, event_time,
     scan_separation are in astropy time units.
 
     Returns:
-       A pandas.DataFrame holding a table of exposures
+       A pandas.DataFrame holding a table of visits
 
     """
 
@@ -295,7 +295,7 @@ def main():
     parser.add_argument('config', help='configuration file name')
     parser.add_argument('events', help='file from which to read events')
     parser.add_argument('fields', help='file from which to read fields')
-    parser.add_argument('exposures', help='file to which to write exposures')
+    parser.add_argument('visits', help='file to which to write visits')
     parser.add_argument('-e', '--episode', type=int, default=0,
                         help='the episode index')
     parser.add_argument('-q', '--quiet', action='store_true',
@@ -315,7 +315,7 @@ def main():
                             level=logging.DEBUG)
 
     interactive = args.interactive
-    exposure_fname = args.exposures
+    visit_fname = args.visits
     episode = args.episode
 
     config = ConfigParser()
@@ -333,14 +333,15 @@ def main():
         shell = code.InteractiveConsole(vars)
         shell.interact()
     else:
-        info("Scheduling followup exposures")
-        exposures = schedule_followup(events, fields, config)
+        info("Scheduling followup visits")
+        visits = schedule_followup(events, fields, config)
 
-        info("Writing followup exposures")
-        exposures.to_csv(exposure_fname,
-                         sep=" ",
-                         quoting=csv.QUOTE_MINIMAL,
-                         index=False, header=True)
+        info("Writing followup visits")
+        visits.to_csv(visit_fname,
+                      sep=" ",
+                      quoting=csv.QUOTE_MINIMAL,
+                      index=False,
+                      header=True)
 
     return 0
 

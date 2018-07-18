@@ -56,23 +56,23 @@ class TestFollowup(unittest.TestCase):
         checked_events = 0
         while checked_events < num_events:
             sample_events = self.events.sample()
-            exposures = followup.schedule_followup(
+            visits = followup.schedule_followup(
                 sample_events, self.fields, self.config)
 
             # If the sampled event is not observable, find another
-            if len(exposures) < 1:
+            if len(visits) < 1:
                 continue
             else:
                 checked_events += 1
 
             # Time since event, in days
-            exposures['dt'] = (exposures.mjd - sample_events.iloc[0].mjd)
+            visits['dt'] = (visits.mjd - sample_events.iloc[0].mjd)
 
-            # Time since first exposure, in hours
-            exposures['dt0'] = (exposures.mjd - exposures.iloc[0].mjd)*24
+            # Time since first visit, in hours
+            visits['dt0'] = (visits.mjd - visits.iloc[0].mjd)*24
 
             # Check scan 1
-            scan1 = exposures.query('dt0 < 0.99999')
+            scan1 = visits.query('dt0 < 0.99999')
             self.assertGreater(scan1.dt.min(), 0, "Scan starts before event")
             self.assertLess(scan1.dt.min(), 1, "First scan started too late")
             self.assertLess(scan1.dt0.max(), 1, "First scan too long")
@@ -83,13 +83,13 @@ class TestFollowup(unittest.TestCase):
                 # One night strategy
                 self.assertLess(scan1.dt.min(), 12,
                                 "One night strategy first scan started too late")
-                scan2 = exposures.query('0.99999 <= dt0 < 2')
+                scan2 = visits.query('0.99999 <= dt0 < 2')
                 self.assertEqual(len(scan1), len(scan2),
                                  "Different scans in one night strategy not equal")
 
             if nbands == 2:
                 # Two night strategy
-                scan2 = exposures.query('dt >= 1')
+                scan2 = visits.query('dt >= 1')
                 self.assertLessEqual(len(scan2.dt), len(scan1.dt))
 
 

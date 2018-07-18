@@ -5,14 +5,14 @@ import numpy as np
 import pandas as pd
 import owsched
 
-test_db_file_name = 'data/baseline2018a.db'
-test_replacement_exposures_fname = 'data/conditions.txt'
+TEST_DB_FILE_NAME = 'data/baseline2018a.db'
+TEST_REPLACEMENT_VISITS_FNAME = 'data/conditions.txt'
 
 
 class TestOwSched(unittest.TestCase):
 
     def test_query_summary(self):
-        dfs = owsched.query_summary(test_db_file_name)
+        dfs = owsched.query_summary(TEST_DB_FILE_NAME)
         self.assertIn('propId', dfs.Proposal.columns)
         self.assertIn('propName', dfs.Proposal.columns)
         self.assertIn('observationStartTime', dfs.SummaryAllProps.columns)
@@ -23,8 +23,8 @@ class TestOwSched(unittest.TestCase):
         self.assertIn('filter', dfs.SummaryAllProps.columns)
 
     def test_split_into_sequences(self):
-        exposures = pd.read_table(test_replacement_exposures_fname, sep=' ')
-        sequences = [s[1] for s in owsched.split_into_sequences(exposures)]
+        visits = pd.read_table(TEST_REPLACEMENT_VISITS_FNAME, sep=' ')
+        sequences = [s[1] for s in owsched.split_into_sequences(visits)]
 
         for i, seq in enumerate(sequences[1:]):
             prev_seq = sequences[i]
@@ -34,12 +34,12 @@ class TestOwSched(unittest.TestCase):
             self.assertGreater(gap_seconds, 120)
 
     def test_overwrite_schedule(self):
-        reference = owsched.query_summary(test_db_file_name).SummaryAllProps
+        reference = owsched.query_summary(TEST_DB_FILE_NAME).SummaryAllProps
 
-        # Force all replacement exposures to have a common, new proposalId
+        # Force all replacement visits to have a common, new proposalId
         # so we can easily extract them after the overwrite.
         test_proposal_id = reference.proposalId.max() + 1
-        replacements = pd.read_table(test_replacement_exposures_fname, sep=' ')
+        replacements = pd.read_table(TEST_REPLACEMENT_VISITS_FNAME, sep=' ')
         replacements['proposalId'] = test_proposal_id
         replacements.observationId = replacements.observationId \
                                      + reference.observationId.max() \
@@ -58,7 +58,7 @@ class TestOwSched(unittest.TestCase):
         # appear once for each program.
         unique_schedule = schedule.drop_duplicates(subset=['observationId'])
 
-        # Check to make sure there are no overlapping exposures
+        # Check to make sure there are no overlapping visits
         previous_end = (unique_schedule
                         .eval('observationStartTime + visitTime')[:-1])
         next_start = (unique_schedule
@@ -66,8 +66,8 @@ class TestOwSched(unittest.TestCase):
         self.assertLess(np.min(next_start.values - previous_end.values), -1.0)
 
     def test_expand_by_proposal(self):
-        proposals = owsched.query_summary(test_db_file_name).Proposal
-        replacements = pd.read_table(test_replacement_exposures_fname, sep=' ')
+        proposals = owsched.query_summary(TEST_DB_FILE_NAME).Proposal
+        replacements = pd.read_table(TEST_REPLACEMENT_VISITS_FNAME, sep=' ')
         prop_visits, new_proposals = owsched.expand_by_proposal(
             replacements, proposals)
 

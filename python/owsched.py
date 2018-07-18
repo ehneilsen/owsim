@@ -1,4 +1,4 @@
-"""Create tables of followup exposures"""
+"""Create tables of followup visits"""
 import os
 import sys
 import argparse
@@ -61,7 +61,7 @@ def overwrite_schedule(reference_schedule, replacement_sequences, gap=120):
 
 
 def query_summary(fname):
-    """Query and opsim database for exposures
+    """Query and opsim database for visits
 
     Args:
        - fname :: the name of the sqlite3 database file
@@ -80,38 +80,38 @@ def query_summary(fname):
     return dbframes
 
 
-def split_into_sequences(exposures, min_gap=120):
-    """Split a set of exposures into sequences at gaps
+def split_into_sequences(visits, min_gap=120):
+    """Split a set of visits into sequences at gaps
 
     Args:
-       - exposures :: the pandas.DataFrame of visits to split
+       - visits :: the pandas.DataFrame of visits to split
        - min_gap :: the minimum gap between sequences, in seconds
 
     Returns:
        a pandas.GroupBy object grouped by sequence
     """
-    start_gaps = exposures.observationStartTime.diff()
-    durations = exposures.visitTime + exposures.slewTime
+    start_gaps = visits.observationStartTime.diff()
+    durations = visits.visitTime + visits.slewTime
     idle_time = start_gaps - durations
     first_in_sequence = idle_time > min_gap
     sequence_ids = first_in_sequence.cumsum()
-    sequences = exposures.groupby(sequence_ids)
+    sequences = visits.groupby(sequence_ids)
     return sequences
 
 
-def expand_by_proposal(exposures, proposals):
+def expand_by_proposal(visits, proposals):
     """Split visits into separate rows by proposal
 
     Args:
-       - exposures :: a pandas.DataFrame of visits to split by proposal
+       - visits :: a pandas.DataFrame of visits to split by proposal
        - proposals :: a pandas.DataFrame of proposals
 
     Returns:
        a pandas.DataFrame of split visits
     """
     new_proposals = proposals.copy()
-    visits = []
-    for _, visit in exposures.iterrows():
+    visits_props = []
+    for _, visit in visits.iterrows():
         for proposal_name in visit.proposals.split():
             visit = visit.copy()
             try:
@@ -130,9 +130,9 @@ def expand_by_proposal(exposures, proposals):
                                       .propId)
             visit['proposalId'] = matching_proposals
             visit.drop('proposals')
-            visits.append(visit)
+            visits_props.append(visit)
 
-    split_visits = pd.DataFrame.from_records(visits)
+    split_visits = pd.DataFrame.from_records(visits_props)
     return split_visits, new_proposals
 
 
@@ -149,9 +149,9 @@ def main():
     parser.add_argument('reference_db',
                         help='database file for the reference simulation')
     parser.add_argument('replacements',
-                        help='table of exposures to add to reference database')
+                        help='table of visits to add to reference database')
     parser.add_argument('overwrote_db',
-                        help='database file with exposures overwritten')
+                        help='database file with visits overwritten')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Print less information')
     parser.add_argument('-v', '--verbose', action='store_true',
@@ -177,7 +177,7 @@ def main():
     info("Loading reference db")
     reference_sim = query_summary(args.reference_db)
 
-    info("Loading replacement exposures")
+    info("Loading replacement visits")
     replacements = pd.read_table(args.replacements, sep=' ')
 
     if interactive:

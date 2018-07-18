@@ -75,7 +75,7 @@ SUMMARYALLPROPS_TYPES = {
 # interface functions
 
 
-def exposure_circumstances(exposures,
+def visit_circumstances(visits,
                            site=EarthLocation.of_site('Cerro Pachon'),
                            survey_start_time=DEFAULT_START_TIME,
                            sky_data_path=SKY_DATA_PATH):
@@ -95,7 +95,7 @@ def exposure_circumstances(exposures,
     """
     info('Calculating astropy time')
     t = astropy.time.Time(
-        exposures.mjd, format='mjd', scale='utc', location=site)
+        visits.mjd, format='mjd', scale='utc', location=site)
     info('Calculating POSIX time')
     clocktime = t.unix
     info('Calculating seconds into survey')
@@ -103,11 +103,11 @@ def exposure_circumstances(exposures,
     info('Calculating LST')
     lst = t.sidereal_time('mean')
     info('Calculating night')
-    night = calc_night(exposures.mjd, site)
+    night = calc_night(visits.mjd, site)
 
     info('Creating astropy SkyCoords')
-    coords = SkyCoord(ra=exposures.ra.values*u.degree,
-                      dec=exposures.decl.values*u.degree,
+    coords = SkyCoord(ra=visits.ra.values*u.degree,
+                      dec=visits.decl.values*u.degree,
                       frame='icrs')
     info('Creating astropy SkyCoords in alt, az')
     alt_az = astropy.coordinates.AltAz(obstime=t, location=site)
@@ -134,7 +134,7 @@ def exposure_circumstances(exposures,
     info('Calculating seeing')
     seeing_source = np.vectorize(SeeingSource(survey_start_time))
     seeing_array = seeing_source(
-        seconds_into_survey, exposures['filter'], airmass)
+        seconds_into_survey, visits['filter'], airmass)
     seeing = pd.DataFrame.from_items(
         zip(['fwhm500', 'fwhmGeom', 'fwhmEff'], seeing_array))
 
@@ -142,30 +142,30 @@ def exposure_circumstances(exposures,
     calc_coord_brightness = np.vectorize(
         SkyBrightnessSource(sky_data_path).coord_brightness)
     sky_brightness = calc_coord_brightness(
-        exposures.mjd, exposures.ra, exposures.decl, exposures['filter'])
+        visits.mjd, visits.ra, visits.decl, visits['filter'])
 
     info('Looking up cloud level')
     cloud_source = np.vectorize(CloudSource(survey_start_time))
     clouds = cloud_source(seconds_into_survey)
 
     info('Calculationg 5-sigma depth')
-    five_sigma_depth = np.zeros(len(exposures), dtype=float)
-    for band in exposures['filter'].unique():
-        band_idxs = np.where(exposures['filter'].values == band)
+    five_sigma_depth = np.zeros(len(visits), dtype=float)
+    for band in visits['filter'].unique():
+        band_idxs = np.where(visits['filter'].values == band)
         five_sigma_depth[band_idxs] = calc_five_sigma_depth(
             band,
             sky_brightness[band_idxs],
             seeing.fwhmEff.iloc[band_idxs],
-            exposures.exptime.iloc[band_idxs],
+            visits.exptime.iloc[band_idxs],
             airmass[band_idxs])
 
     info('Calculating slew time')
     pre_alt = alt_az_coords.alt.deg[:-1]
     pre_az = alt_az_coords.az.deg[:-1]
-    pre_band = exposures['filter'][:-1]
+    pre_band = visits['filter'][:-1]
     post_alt = alt_az_coords.alt.deg[1:]
     post_az = alt_az_coords.az.deg[1:]
-    post_band = exposures['filter'][1:]
+    post_band = visits['filter'][1:]
     slew_time = np.zeros(len(t), dtype=float)
     calc_slew_time = np.vectorize(SlewTimeSource())
     slew_time[1:] = calc_slew_time(
@@ -176,22 +176,22 @@ def exposure_circumstances(exposures,
     slew_distance[1:] = coords[:-1].separation(coords[1:])
 
     circ_dict = OrderedDict((
-        ('observationId', np.arange(len(exposures))),
+        ('observationId', np.arange(len(visits))),
         ('night', night),
         ('observationStartTime', clocktime),
-        ('observationStartMJD', exposures.mjd),
+        ('observationStartMJD', visits.mjd),
         ('observationStartLST', lst.deg),
-        ('filter', exposures['filter']),
-        ('proposals', exposures.proposals),
-        ('fieldId', exposures.target.astype(int)),
-        ('fieldRA', exposures.ra),
-        ('fieldDec', exposures.decl),
-        ('angle', exposures.angle),
+        ('filter', visits['filter']),
+        ('proposals', visits.proposals),
+        ('fieldId', visits.target.astype(int)),
+        ('fieldRA', visits.ra),
+        ('fieldDec', visits.decl),
+        ('angle', visits.angle),
         ('altitude', alt_az_coords.alt.deg),
         ('azimuth', alt_az_coords.az.deg),
-        ('numExposures', exposures.nexp.astype(int)),
-        ('visitTime', exposures.duration),
-        ('visitExposureTime', exposures.exptime),
+        ('numExposures', visits.nexp.astype(int)),
+        ('visitTime', visits.duration),
+        ('visitExposureTime', visits.exptime),
         ('airmass', airmass),
         ('skyBrightness', sky_brightness),
         ('cloud', clouds),
@@ -217,7 +217,7 @@ def exposure_circumstances(exposures,
         ("rotSkyPos", None)
         ))
 
-    circumstances = pd.DataFrame(circ_dict, index=exposures.index.values)
+    circumstances = pd.DataFrame(circ_dict, index=visits.index.values)
     circumstances = circumstances.astype(SUMMARYALLPROPS_TYPES)
     return circumstances
 
@@ -284,9 +284,9 @@ def calc_moon_phase(sun_coords, moon_coords):
 def _main():
     parser = argparse.ArgumentParser()
     parser.add_argument('config', help='configuration file name')
-    parser.add_argument('exposures', help='file from which to read exposures')
+    parser.add_argument('visits', help='file from which to read visits')
     parser.add_argument('circumstances',
-                        help='file to which to write exposure circumstances')
+                        help='file to which to write visit circumstances')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Print less information')
     parser.add_argument('-v', '--verbose', action='store_true',
@@ -304,7 +304,7 @@ def _main():
                             level=logging.DEBUG)
 
     interactive = args.interactive
-    exposure_fname = args.exposures
+    visit_fname = args.visits
     circumstances_fname = args.circumstances
 
     config = ConfigParser()
@@ -312,24 +312,24 @@ def _main():
 
     site = EarthLocation.of_site(config['site']['name'])
 
-    info("Loading exposures")
-    exposures = pd.read_table(args.exposures, sep=" ")
-    exposures['angle'] = 0
-    exposures['overhead'] = 0
+    info("Loading visits")
+    visits = pd.read_table(args.visits, sep=" ")
+    visits['angle'] = 0
+    visits['overhead'] = 0
 
     if interactive:
-        expsamp = exposures.iloc[:5]
-        print("exposure_circumstances(expsamp, site)")
+        expsamp = visits.iloc[:5]
+        print("visit_circumstances(expsamp, site)")
 
         vars = globals().copy()
         vars.update(locals())
         shell = code.InteractiveConsole(vars)
         shell.interact()
     else:
-        info("Scheduling followup exposures")
-        circumstances = exposure_circumstances(exposures, site)
+        info("Scheduling followup visits")
+        circumstances = visit_circumstances(visits, site)
 
-        info("Writing followup exposures")
+        info("Writing followup visits")
         _, extension = os.path.splitext(circumstances_fname)
         circumstances.to_csv(circumstances_fname,
                              sep=" ", index=False, header=True)
