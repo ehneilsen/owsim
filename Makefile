@@ -7,7 +7,7 @@ SIMS_SKYBRIGHTNESS_DATA := /home/opsim/repos/sims_skybrightness_pre/data
 
 .PHONY: clean
 clean :
-	rm data/collected/fieldID.dat
+	rm data/collected/fieldID.dat data/munged/*.txt data/processed/*.txt
 
 ###############################################################################
 # Data collection

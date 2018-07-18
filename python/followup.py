@@ -47,6 +47,7 @@ def schedule_followup(events, fields, config):
        a pandas.DataFrame with the schedule of follow-up visits.
     """
     readout_time = float(config['instrument']['readout_time']) * u.second
+    shutter_time = float(config['instrument']['shutter_time']) * u.second
     exptime = float(config['obs_block']['exptime']) * u.second
     nexp = int(config['obs_block']['nexp'])
     bands = config['search']['bands'].split()
@@ -96,6 +97,9 @@ def schedule_followup(events, fields, config):
         block = astroplan.ObservingBlock.from_exposures(
             target, 1, exptime, nexp, readout_time,
             configuration={'filter': band})
+        block.shutter_time = shutter_time
+        block.duration = block.duration \
+                         + block.number_exposures * block.shutter_time
         return block
 
     # Schedule follow-up for each event
