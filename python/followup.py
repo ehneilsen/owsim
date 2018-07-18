@@ -177,7 +177,7 @@ def followup_targets(events, fields, area):
     targets = OrderedDict()
 
     # there should be a faster (vectorized) way to do this.
-    for idx, event in events.iterrow():
+    for idx, event in events.iterrows():
         targets = []
         for field_idx, field in event_fields.query(
                 f'event_id=={event.event_id}').iterrows():
