@@ -1,4 +1,4 @@
-# Preparing and environment for owsim
+# Preparing an environment for owsim
 
 ``owsim`` requires ``python`` 3.6 or later, and the LSST opsim4
 stack. The easiest way to get this on the DES cluster at Fermilab is
