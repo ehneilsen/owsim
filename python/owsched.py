@@ -7,6 +7,7 @@ from collections import namedtuple
 from logging import debug, info, warning, error, critical
 import contextlib
 import sqlite3
+import datetime
 
 import pandas as pd
 
@@ -29,6 +30,9 @@ def overwrite_schedule(reference_schedule, replacement_sequences, gap=120):
     prior_clock = 0
     subsequences = []
     for _, replacement_sequence in replacement_sequences:
+        seq_start_clock = replacement_sequence.observationStartTime.min()
+        info("Overwriting with replacement sequence starting at "
+             + datetime.datetime.fromtimestamp(seq_start_clock).isoformat())
         # Find the start time of the next replacement sequence
         replacement_start_clock = (replacement_sequence
                                    .observationStartTime
@@ -55,8 +59,26 @@ def overwrite_schedule(reference_schedule, replacement_sequences, gap=120):
     if len(ref_subset) > 0:
         subsequences.append(ref_subset)
 
-    all_visits = pd.concat(subsequences)
+    info("Combining %d subsequences" % len(subsequences))
 
+    if len(subsequences) > 10:
+        group_size = int(len(subsequences)/48)
+    else:
+        group_size = 10
+
+    if len(subsequences) > group_size:
+        all_visits = subsequences[0]
+        subsequences = subsequences[1:]
+        while len(subsequences) > group_size:
+            new_subseqs = subsequences[:group_size]
+            subsequences = subsequences[group_size:]
+            all_visits = pd.concat([all_visits] + new_subseqs)
+        info("all_visits now %d long", len(all_visits))
+        if len(subsequences) > 0:
+            all_visits = pd.concat([all_visits] + subsequences)
+    else:
+        all_visits = pd.concat(subsequences)
+        
     return all_visits
 
 
@@ -179,7 +201,12 @@ def main():
 
     info("Loading replacement visits")
     replacements = pd.read_table(args.replacements, sep=' ')
-
+    replacements.sort_values('observationStartTime', inplace=True)
+    max_ref_id = reference_sim.SummaryAllProps['observationId'].max()
+    replacements['observationId'] = replacements['observationId'] \
+                                    - replacements['observationId'].min() \
+                                    + max_ref_id + 1
+    
     if interactive:
         vars = globals().copy()
         vars.update(locals())
