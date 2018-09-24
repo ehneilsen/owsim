@@ -39,7 +39,6 @@ SUMMARYALLPROPS_TYPES = {
     "fieldId": int,
     "fieldRA": float,
     "fieldDec": float,
-    "angle": float,
     "altitude": float,
     "azimuth": float,
     "numExposures": int,
@@ -186,7 +185,6 @@ def visit_circumstances(visits,
         ('fieldId', visits.target.astype(int)),
         ('fieldRA', visits.ra),
         ('fieldDec', visits.decl),
-        ('angle', visits.angle),
         ('altitude', alt_az_coords.alt.deg),
         ('azimuth', alt_az_coords.az.deg),
         ('numExposures', visits.nexp.astype(int)),
@@ -314,8 +312,6 @@ def _main():
 
     info("Loading visits")
     visits = pd.read_table(args.visits, sep=" ")
-    visits['angle'] = 0
-    visits['overhead'] = 0
 
     if interactive:
         expsamp = visits.iloc[:5]

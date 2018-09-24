@@ -151,10 +151,10 @@ def expand_by_proposal(visits, proposals):
                                       .loc[proposal_name]
                                       .propId)
             visit['proposalId'] = matching_proposals
-            visit.drop('proposals')
             visits_props.append(visit)
 
     split_visits = pd.DataFrame.from_records(visits_props)
+    split_visits.drop('proposals', axis=1, inplace=True)
     return split_visits, new_proposals
 
 
@@ -201,6 +201,7 @@ def main():
 
     info("Loading replacement visits")
     replacements = pd.read_table(args.replacements, sep=' ')
+
     replacements.sort_values('observationStartTime', inplace=True)
     max_ref_id = reference_sim.SummaryAllProps['observationId'].max()
     replacements['observationId'] = replacements['observationId'] \
