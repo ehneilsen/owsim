@@ -90,7 +90,7 @@ def schedule_followup(events, fields, config):
     time_resolution = float(config['scheduler']['time_resolution']) * u.second
     scheduler = DirectScheduler(
         constraints=constraints, observer=observer,
-        transitioner=transitioner, time_resolution=1*u.hour)
+        transitioner=transitioner, time_resolution=time_resolution)
 
     # helper function to turn targets into blocks
     def obsblock(target, band):
