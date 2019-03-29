@@ -11,12 +11,21 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 
+import astropy.utils.iers
+
+# Fix broken URL for IERS_A
+IERS_A_URL = 'http://toshi.nofs.navy.mil/ser7/finals2000A.all'
+astropy.utils.iers.IERS_A_URL = IERS_A_URL
+astropy.utils.iers.iers.IERS_A_URL = IERS_A_URL
+astropy.utils.iers.iers.conf.iers_auto_url = IERS_A_URL
+
 import astropy
 import astropy.time
 import astropy.coordinates
 from astropy.coordinates import SkyCoord
 from astropy.coordinates import EarthLocation
 import astropy.units as u
+
 
 from lsst_conditions import SeeingSource
 from lsst_conditions import SlewTimeSource
@@ -100,7 +109,7 @@ def visit_circumstances(visits,
     info('Calculating seconds into survey')
     seconds_into_survey = clocktime - survey_start_time.unix
     info('Calculating LST')
-    lst = t.sidereal_time('mean')
+    lst = t.sidereal_time('mean')    
     info('Calculating night')
     night = calc_night(visits.mjd, site)
 
@@ -201,7 +210,7 @@ def visit_circumstances(visits,
         ('moonDec', moon_coords.dec.deg),
         ('moonAlt', moon_alt_az_coords.alt.deg),
         ('moonAz', moon_alt_az_coords.az.deg),
-        ('moonDistance', moon_distance),
+        ('moonDistance', moon_distance.deg),
         ('moonPhase', moon_phase),
         ('sunRA', sun_coords.ra.deg),
         ('sunDec', sun_coords.dec.deg),
