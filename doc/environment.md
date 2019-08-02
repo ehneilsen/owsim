@@ -63,3 +63,4 @@ OWSIM_DIR=/data/des70.a/data/$(whoami)/owsim ;# or wherever it is
 export PYTHONPATH=${OWSIM_DIR}/python:$PYTHONPATH
 export PYTHONPATH=$PYTHONPATH:/data/des70.a/data/neilsen/lsst_supplement
 ```
+pip install -t /data/des70.a/data/neilsen/lsst_supplement astroplan
