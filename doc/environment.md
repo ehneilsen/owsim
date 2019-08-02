@@ -1,5 +1,7 @@
 # Preparing an environment for owsim
 
+## Using the singularity container
+
 ``owsim`` requires ``python`` 3.6 or later, and the LSST opsim4
 stack. The easiest way to get this on the DES cluster at Fermilab is
 through a ``singularity`` container. Such a container is similar to a
@@ -50,3 +52,14 @@ Test ``owsim`` in the container::
 
 If the tests pass, you are now in an environment in which you can run
 ``owsim``.
+
+## Using a cvmsf environment
+
+```bash
+bash --noprofile --norc
+source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_sims/sims_w_2019_29/loadLSST.bash
+setup sims_featureScheduler
+OWSIM_DIR=/data/des70.a/data/$(whoami)/owsim ;# or wherever it is
+export PYTHONPATH=${OWSIM_DIR}/python:$PYTHONPATH
+export PYTHONPATH=$PYTHONPATH:/data/des70.a/data/neilsen/lsst_supplement
+```

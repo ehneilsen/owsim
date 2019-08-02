@@ -14,10 +14,11 @@ import pandas as pd
 import astropy.utils.iers
 
 # Fix broken URL for IERS_A
-IERS_A_URL = 'http://toshi.nofs.navy.mil/ser7/finals2000A.all'
-astropy.utils.iers.IERS_A_URL = IERS_A_URL
-astropy.utils.iers.iers.IERS_A_URL = IERS_A_URL
-astropy.utils.iers.iers.conf.iers_auto_url = IERS_A_URL
+#IERS_A_URL = 'http://toshi.nofs.navy.mil/ser7/finals2000A.all'
+#astropy.utils.iers.IERS_A_URL = IERS_A_URL
+#astropy.utils.iers.iers.IERS_A_URL = IERS_A_URL
+#astropy.utils.iers.iers.conf.iers_auto_url = IERS_A_URL
+
 
 import astropy
 import astropy.time
@@ -146,11 +147,15 @@ def visit_circumstances(visits,
     seeing = pd.DataFrame.from_items(
         zip(['fwhm500', 'fwhmGeom', 'fwhmEff'], seeing_array))
 
-    info('Looking up sky brightness')
-    calc_coord_brightness = np.vectorize(
-        SkyBrightnessSource(sky_data_path).coord_brightness)
-    sky_brightness = calc_coord_brightness(
-        visits.mjd, visits.ra, visits.decl, visits['filter'])
+    if 'sky' in visits:
+        info('Using sky brightness in the visits file')
+        sky_brightness = visits.sky.values
+    else:
+        info('Looking up sky brightness')
+        calc_coord_brightness = np.vectorize(
+            SkyBrightnessSource(sky_data_path).coord_brightness)
+        sky_brightness = calc_coord_brightness(
+            visits.mjd, visits.ra, visits.decl, visits['filter'])
 
     info('Looking up cloud level')
     cloud_source = np.vectorize(CloudSource(survey_start_time))
@@ -176,7 +181,7 @@ def visit_circumstances(visits,
     post_band = visits['filter'][1:]
     slew_time = np.zeros(len(t), dtype=float)
     calc_slew_time = np.vectorize(SlewTimeSource())
-    slew_time[1:] = calc_slew_time(
+    slew_time[1:] = calc_slew_time(seconds_into_survey[1:],
         pre_alt, pre_az, pre_band, post_alt, post_az, post_band)
 
     info('Calculating slew distance')

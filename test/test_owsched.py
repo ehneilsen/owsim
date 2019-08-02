@@ -23,7 +23,7 @@ class TestOwSched(unittest.TestCase):
         self.assertIn('filter', dfs.SummaryAllProps.columns)
 
     def test_split_into_sequences(self):
-        visits = pd.read_table(TEST_REPLACEMENT_VISITS_FNAME, sep=' ')
+        visits = pd.read_csv(TEST_REPLACEMENT_VISITS_FNAME, sep=' ')
         sequences = [s[1] for s in owsched.split_into_sequences(visits)]
 
         for i, seq in enumerate(sequences[1:]):
@@ -39,7 +39,7 @@ class TestOwSched(unittest.TestCase):
         # Force all replacement visits to have a common, new proposalId
         # so we can easily extract them after the overwrite.
         test_proposal_id = reference.proposalId.max() + 1
-        replacements = pd.read_table(TEST_REPLACEMENT_VISITS_FNAME, sep=' ')
+        replacements = pd.read_csv(TEST_REPLACEMENT_VISITS_FNAME, sep=' ')
         replacements['proposalId'] = test_proposal_id
         replacements.observationId = replacements.observationId \
                                      + reference.observationId.max() \
@@ -67,7 +67,7 @@ class TestOwSched(unittest.TestCase):
 
     def test_expand_by_proposal(self):
         proposals = owsched.query_summary(TEST_DB_FILE_NAME).Proposal
-        replacements = pd.read_table(TEST_REPLACEMENT_VISITS_FNAME, sep=' ')
+        replacements = pd.read_csv(TEST_REPLACEMENT_VISITS_FNAME, sep=' ')
         prop_visits, new_proposals = owsched.expand_by_proposal(
             replacements, proposals)
 

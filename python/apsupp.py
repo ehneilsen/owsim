@@ -231,19 +231,16 @@ class LSSTTransitioner(astroplan.Transitioner):
 
 
 class OpsimTransitioner(astroplan.Transitioner):
-    def __init__(self, telescope, lax_dome=False):
+    def __init__(self, slew_src):
         """Creates transition blocks between successive target blocks.
 
         Args:
-           - telescope : an `lsst.sims.speedObservatory.telescope.Telescope`
-                         instance
-           - lax_dome : if true, allow dome to creep
+           - slew_src : slew source callable object
 
         Return:
            callable to create `~astroplan.scheduling.TransitionBlock` objects
         """
-        self.telescope = telescope
-        self.lax_dome = lax_dome
+        self.slew_src = slew_src
 
     def __call__(self, old_block, new_block, start_time, observer):
         """Returns transition block between target blocks
@@ -259,16 +256,19 @@ class OpsimTransitioner(astroplan.Transitioner):
         Return:
            `~astroplan.scheduling.TransitionBlock` or None
         """
+        time_into_survey = start_time - self.slew_src.start_time
+        seconds_into_survey = time_into_survey.copy(format='sec').value
+        
         alt_az = astropy.coordinates.AltAz(obstime=start_time,
                                            location=observer.location)
         old_horizon = old_block.target.coord.transform_to(alt_az)
         new_horizon = new_block.target.coord.transform_to(alt_az)
         old_filter = old_block.configuration['filter']
         new_filter = new_block.configuration['filter']
-        slew_time = self.telescope.calcSlewTime(
+        slew_time = self.slew_src(
+            seconds_into_survey,
             old_horizon.alt.radian, old_horizon.az.radian, old_filter,
-            new_horizon.alt.radian, new_horizon.az.radian, new_filter,
-            laxDome=self.lax_dome) * u.second
+            new_horizon.alt.radian, new_horizon.az.radian, new_filter) * u.second
 
         if slew_time == 0:
             return None

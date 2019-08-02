@@ -22,7 +22,8 @@ import astroplan
 import apsupp
 from apsupp import DirectScheduler
 
-from lsst.sims.speedObservatory import Telescope
+from lsst_conditions import SlewTimeSource
+#from lsst.sims.speedObservatory import Telescope
 
 
 # constants
@@ -60,8 +61,8 @@ def schedule_followup(events, fields, config):
     #
     # Create a Transitioner
     #
-    telescope = Telescope()
-    transitioner = apsupp.OpsimTransitioner(telescope)
+    slew_src = SlewTimeSource()
+    transitioner = apsupp.OpsimTransitioner(slew_src)
 
     #
     # Build astroplan constraints

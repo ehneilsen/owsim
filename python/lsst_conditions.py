@@ -3,18 +3,27 @@ import os
 
 import numpy as np
 import astropy.time
+from astropy.time import Time, TimeDelta
 import healpy
 
-import lsst.sims.ocs.kernel.time_handler
-import lsst.sims.speedObservatory
-import lsst.sims.seeingModel
-import lsst.sims.cloudModel
-import lsst.sims.skybrightness_pre
+# import lsst.sims.ocs.kernel.time_handler
+# import lsst.sims.speedObservatory
+# import lsst.sims.seeingModel
+# import lsst.sims.cloudModel
+# import lsst.sims.skybrightness_pre
 import lsst.sims.utils
+
+from lsst.ts.observatory.model import ObservatoryModel, Target
+from lsst.ts.observatory.model import ObservatoryState
+from lsst.ts.observatory.model import ObservatoryPosition
+from lsst.sims.seeingModel import SeeingData, SeeingModel
+from lsst.sims.cloudModel import CloudData
+from lsst.sims.skybrightness_pre import SkyModelPre
+
 
 # constants
 
-SKY_DATA_PATH = '/home/opsim/repos/sims_skybrightness_pre/data'
+SKY_DATA_PATH = '/data/des70.a/data/neilsen/sims_skybrightness_pre/data'
 DEFAULT_START_TIME = astropy.time.Time('2022-01-01 00:00:00Z', format='iso')
 
 # exception classes
@@ -36,12 +45,15 @@ class SeeingSource(object):
            - survey_start_time :: an astropy.time.Time object
              designating the start of the survey.
         """
-        # Separate creation of SeeingSim instance so we do not
-        # have to reinstantiate it every iteration
-        time_handler = lsst.sims.ocs.kernel.time_handler.TimeHandler(
-            survey_start_time.iso.split()[0])
-        self.seeing_sim = lsst.sims.seeingModel.SeeingSim(time_handler)
+        self.start_time = survey_start_time
+        self.seeing_data = SeeingData(self.start_time)
+        self.seeing_model = SeeingModel()
 
+        self.seeing_filter_index = {}
+        for filter_index, filter_name in enumerate(self.seeing_model.filter_list):
+            self.seeing_filter_index[filter_name] = filter_index
+
+        
     def __call__(self, seconds_into_survey, band, airmass):
         """Return simulated seeing parameters.
 
@@ -55,43 +67,12 @@ class SeeingSource(object):
         Returns:
            a tuple with fwhm500, fwhmGeom, and fwhmEff
         """
-        fwhm500, fwhmGeom, fwhmEff = self.seeing_sim.get_seeing_singlefilter(
-            seconds_into_survey, band, airmass)
-        return fwhm500, fwhmGeom, fwhmEff
-
-
-class SlewTimeSource(object):
-    """Callable object to calculate slew times."""
-
-    def __init__(self, lsst_lax_dome=False):
-        """Initialize slew time calculator.
-
-        Args:
-           - lsst_lax_dome :: use the "relaxed" dome model.
-        """
-        # Separate creation of Telescope instance so we do not
-        # have to reinstantiate it every iteration
-
-        self.telescope = lsst.sims.speedObservatory.Telescope()
-        self.lsst_lax_dome = lsst_lax_dome
-
-    def __call__(self, pre_alt, pre_az, pre_band,
-                 post_alt, post_az, post_band):
-        """Calculate the slew time.
-
-        Args:
-           - pre_alt :: the alt of the starting pointing, in degrees
-           - pre_az :: the az of the starting pointing, in degrees
-           - pre_band :: the filter at the starting pointing
-           - post_alt :: the alt of the ending pointing, in degrees
-           - post_az :: the az of the ending pointing, in degrees
-           - post_band :: the filter at the starting pointing
-        """
-        t = self.telescope.calcSlewTime(
-            np.radians(pre_alt), np.radians(pre_az), pre_band,
-            np.radians(post_alt), np.radians(post_az), post_band,
-            laxDome=self.lsst_lax_dome)
-        return t
+        fwhm500 = self.seeing_data(
+            self.start_time + TimeDelta(seconds_into_survey, format='sec'))
+        seeings = self.seeing_model(fwhm500, airmass)
+        fwhm_geom = seeings['fwhmGeom'][self.seeing_filter_index[band]]
+        fwhm_eff = seeings['fwhmEff'][self.seeing_filter_index[band]]
+        return fwhm500, fwhm_geom, fwhm_eff
 
 
 class CloudSource(object):
@@ -104,12 +85,9 @@ class CloudSource(object):
            - survey_start_time :: an astropy.time.Time object
              designating the start of the survey.
         """
-        # Separate creation of CloudModel instance so we do not
-        # have to reinstantiate it every iteration
-        time_handler = lsst.sims.ocs.kernel.time_handler.TimeHandler(
-            survey_start_time.iso.split()[0])
-        self.cloud_sim = lsst.sims.cloudModel.CloudModel(time_handler)
-        self.cloud_sim.read_data()
+        self.start_time = survey_start_time        
+        self.cloud_data = CloudData(DEFAULT_START_TIME)
+        
 
     def __call__(self, seconds_into_survey):
         """Return the simulated cloud level.
@@ -121,8 +99,61 @@ class CloudSource(object):
         Returns:
            the fraction cloud coverage
         """
-        cloud_level = self.cloud_sim.get_cloud(seconds_into_survey)
+        cloud_level = self.cloud_data(
+            self.start_time + TimeDelta(seconds_into_survey, format='sec'))
+
         return cloud_level
+
+
+class SlewTimeSource(object):
+    """Callable object to calculate slew times."""
+
+    pre_position = ObservatoryPosition()
+    post_position = ObservatoryPosition()
+    
+    def __init__(self, survey_start_time=DEFAULT_START_TIME):
+        """Initialize slew time calculator.
+        """
+        self.start_time = survey_start_time
+        self.observatory = ObservatoryModel()
+        self.observatory.configure_from_module()
+        self.observatory.params.rotator_followsky = True
+
+    def __call__(self, seconds_into_survey,
+                 pre_alt, pre_az, pre_band,
+                 post_alt, post_az, post_band):
+        """Calculate the slew time.
+
+        Args:
+           - seconds_into_survey :: the time into the survey (in seconds)
+           - pre_alt :: the alt of the starting pointing, in degrees
+           - pre_az :: the az of the starting pointing, in degrees
+           - pre_band :: the filter at the starting pointing
+           - post_alt :: the alt of the ending pointing, in degrees
+           - post_az :: the az of the ending pointing, in degrees
+           - post_band :: the filter at the starting pointing
+        """        
+        current_time = self.start_time + TimeDelta(seconds_into_survey, format='sec')
+        self.pre_position.time = current_time
+        self.pre_position.tracking = True
+        self.pre_position.alt_rad = np.radians(pre_alt)
+        self.pre_position.az_rad = np.radians(pre_az)
+        self.pre_position.rot_rad = self.observatory.current_state.rot_rad
+        self.pre_position.filter = pre_band
+        pre_state = self.observatory.get_closest_state(self.pre_position)
+
+        self.post_position.time = current_time
+        self.post_position.tracking = True
+        self.post_position.alt_rad = np.radians(post_alt)
+        self.post_position.az_rad = np.radians(post_az)
+        self.post_position.rot_rad = self.observatory.current_state.rot_rad
+        self.post_position.filter = post_band
+        post_state = self.observatory.get_closest_state(self.post_position)
+
+        slew_time = self.observatory.get_slew_delay_for_state(
+            pre_state, post_state, False)
+
+        return slew_time
 
 
 class SkyBrightnessSource(object):
@@ -143,19 +174,21 @@ class SkyBrightnessSource(object):
     @property
     def sky_sim_hpx(self):
         """An lsst.sims.skybrightness_pre.SkyModelPre for healpix values."""
-        os.environ['SIMS_SKYBRIGHTNESS_DATA'] = self.data_path
         if self._sky_sim_hpx is None:
             self._sky_sim_hpx = lsst.sims.skybrightness_pre.SkyModelPre(
-                opsimFields=False)
+                data_path=os.path.join(self.data_path, 'healpix'),
+                opsimFields=False,
+                verbose=False)
         return self._sky_sim_hpx
 
     @property
     def sky_sim_field(self):
         """An lsst.sims.skybrightness_pre.SkyModelPre for LSST field values."""
-        os.environ['SIMS_SKYBRIGHTNESS_DATA'] = self.data_path
         if self._sky_sim_field is None:
             self._sky_sim_field = lsst.sims.skybrightness_pre.SkyModelPre(
-                opsimFields=True)
+                data_path=os.path.join(self.data_path, 'opsimFields'),
+                opsimFields=True,
+                verbose=False)
         return self._sky_sim_field
 
     @property

@@ -77,7 +77,7 @@ def overwrite_schedule(reference_schedule, replacement_sequences, gap=120):
         if len(subsequences) > 0:
             all_visits = pd.concat([all_visits] + subsequences)
     else:
-        all_visits = pd.concat(subsequences)
+        all_visits = pd.concat(subsequences, sort=True)
         
     return all_visits
 

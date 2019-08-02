@@ -1,5 +1,5 @@
 .EXPORT_ALL_VARIABLES:
-SIMS_SKYBRIGHTNESS_DATA := /home/opsim/repos/sims_skybrightness_pre/data
+# SIMS_SKYBRIGHTNESS_DATA := /home/opsim/repos/sims_skybrightness_pre/data
 
 ###############################################################################
 # Utility

@@ -7,7 +7,7 @@ import astropy.units as u
 
 import astroplan
 
-from lsst.sims.speedObservatory import Telescope
+from lsst.ts.observatory.model import ObservatoryModel
 
 # Hack for when opsim is not really installed, but you
 # have a checked out version of sims_speedObservatory
@@ -22,7 +22,7 @@ from lsst.sims.speedObservatory import Telescope
 # Telescope = telescope.Telescope
 
 import apsupp
-
+from lsst_conditions import SlewTimeSource
 
 class TestDirectScheduler(unittest.TestCase):
 
@@ -137,10 +137,11 @@ class TestLSSTTransitioner(unittest.TestCase):
 class TestOpsimTransitioner(unittest.TestCase):
 
     def test_transitioner(self):
-        telescope = Telescope()
+        observatory = ObservatoryModel()
+        observatory.configure_from_module()
         pachon = astroplan.Observer.at_site("Cerro Pachon")
         start_time = astropy.time.Time(59598.66945625747, format='mjd')
-        readout_time = telescope.readoutTime * u.second
+        readout_time = observatory.params.readouttime * u.second
         exptime = 15 * u.second
         nexp = 2
 
@@ -164,10 +165,11 @@ class TestOpsimTransitioner(unittest.TestCase):
                 constraints=constraints)
             for band in ('g', 'i') for target in targets]
 
-        self.assertGreater(telescope.readoutTime, 1.5)
-        self.assertGreater(telescope.filterChangeTime, 15.0)
+        self.assertGreater(observatory.params.readouttime, 1.5)
+        self.assertGreater(observatory.params.filter_changetime, 15.0)
 
-        transitioner = apsupp.OpsimTransitioner(telescope)
+        slew_src = SlewTimeSource()
+        transitioner = apsupp.OpsimTransitioner(slew_src)
         whitepaper_transitioner = apsupp.LSSTTransitioner()
         for old_block, new_block in zip(obs_blocks[:-1], obs_blocks[1:]):
             block = transitioner(old_block, new_block, start_time, pachon)
@@ -177,15 +179,15 @@ class TestOpsimTransitioner(unittest.TestCase):
             wp_duration_seconds = (wp_block.duration/u.second).value
 
             self.assertAlmostEqual(
-                duration_seconds, wp_duration_seconds, delta=1)
+                duration_seconds, wp_duration_seconds, delta=5)
 
             old_filter = old_block.configuration['filter']
             new_filter = new_block.configuration['filter']
             if old_filter == new_filter:
-                min_expected_duration = telescope.readoutTime
+                min_expected_duration = observatory.params.readouttime
             else:
-                min_expected_duration = max(telescope.readoutTime,
-                                            telescope.filterChangeTime)
+                min_expected_duration = max(observatory.params.readouttime,
+                                            observatory.params.filter_changetime)
 
             self.assertGreaterEqual(duration_seconds, min_expected_duration)
             self.assertLess(duration_seconds, 600)

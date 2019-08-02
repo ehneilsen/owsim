@@ -21,8 +21,8 @@ class TestFollowup(unittest.TestCase):
         np.random.seed(rand_seed)
         self.config = ConfigParser()
         self.config.read('etc/followup.conf')
-        self.fields = pd.read_table('data/fieldID.txt')
-        self.events = pd.read_table('data/events.txt').query('episode==0')
+        self.fields = pd.read_csv('data/fieldID.txt', sep='\s+')
+        self.events = pd.read_csv('data/events.txt', sep='\s+').query('episode==0')
 
     def test_search_radius(self):
         sr = followup.search_radius(60)
