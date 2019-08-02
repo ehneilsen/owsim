@@ -1,59 +1,8 @@
 # Preparing an environment for owsim
 
-## Using the singularity container
-
-``owsim`` requires ``python`` 3.6 or later, and the LSST opsim4
-stack. The easiest way to get this on the DES cluster at Fermilab is
-through a ``singularity`` container. Such a container is similar to a
-virtual machine, in that it appears (from the users point of view) to
-be a whole different system from the host, but really it shares the
-same kernel.
-
-The only host on the DES cluster to have singularity is
-des70.fnal.gov; so, use that host.
-
-Make your own copy of the container thus:
-
-```bash
-  mkdir /data/des70.a/data/$(whoami)/singularity
-  cd /data/des70.a/data/$(whoami)/singularity
-  tar -xf /data/des70.a/data/neilsen/singularity/tarballs/opsim4_fbs_py3-2018-07-11_mod.tgz
-```
-
-This will yield many ``implausibly old time stamp`` complaints; these
-can be ignored.
-
-Start the container:
-
-```bash
-  cd /data/des70.a/data/$(whoami)/singularity
-  env -i singularity exec \
-    --home $HOME:/hosthome \
-    --bind /data:/data \
-    opsim4_fbs_py3-2018-07-11 \
-    bash --login
-```
-
-This should give you a ``Singularity> `` prompt. Set up your
-environment in the container thus::
-
-```bash
-  OWSIM_DIR=/data/des70.a/data/$(whoami)/owsim ;# or wherever it is
-  source /home/opsim/.opsim4_profile_fbs
-  export PYTHONPATH=${OWSIM_DIR}/python:$PYTHONPATH
-```
-
-Test ``owsim`` in the container::
-
-```bash
-  cd ${OWSIM_DIR}
-  make test
-```
-
-If the tests pass, you are now in an environment in which you can run
-``owsim``.
-
-## Using a cvmsf environment
+``owsim`` relies on packages in the LSST software environment. The
+easiest way to prepare such an environment on the DES cluster at
+Fermilab is through cvmfs:
 
 ```bash
 bash --noprofile --norc
@@ -63,4 +12,50 @@ OWSIM_DIR=/data/des70.a/data/$(whoami)/owsim ;# or wherever it is
 export PYTHONPATH=${OWSIM_DIR}/python:$PYTHONPATH
 export PYTHONPATH=$PYTHONPATH:/data/des70.a/data/neilsen/lsst_supplement
 ```
-pip install -t /data/des70.a/data/neilsen/lsst_supplement astroplan
+
+Currently, ``owsim`` is not packaged as an eups package, so it needs
+to be added to the PYTHONPATH manually:
+
+```bash
+OWSIM_DIR=/data/des70.a/data/$(whoami)/owsim ;# or wherever it is
+export PYTHONPATH=${OWSIM_DIR}/python:$PYTHONPATH
+```
+
+``owsim`` uses the ``astropy.astroplan`` package, which is not part of
+the LSST environment. You can use ``pip`` to install it somewhere
+convenient *outside the LSST environment*:
+
+```bash
+EXTRA_PYTHON_PACKAGES=/data/des70.a/data/$(whoami)/lsst_supplement
+mkdir -p ${EXTRA_PYTHON_PACKAGES}
+pip install -t ${EXTRA_PYTHON_PACKAGES} astroplan
+
+```
+
+This can be added to the path as necessary:
+```bash
+EXTRA_PYTHON_PACKAGES=/data/des70.a/data/$(whoami)/lsst_supplement
+export PYTHONPATH=$PYTHONPATH:${EXTRA_PYTHON_PACKAGES}
+```
+
+To test ``owsim``:
+
+```bash
+  cd ${OWSIM_DIR}
+  make test
+```
+
+If the tests pass, you are now in an environment in which you can run
+``owsim``.
+
+# Using `skybright` to calculate sky brightness
+
+An alternate method of calculating sky brightness (developed for DES)
+is also supported. To use it, ``skybright`` must be added to the
+``PYTHONPATH``, for example:
+
+```bash
+export PYTHONPATH=/data/des70.a/data/neilsen/skybright:$PYTHONPATH
+```
+
+`skybright` can be obtained here: [https://github.com/ehneilsen/skybright](https://github.com/ehneilsen/skybright)

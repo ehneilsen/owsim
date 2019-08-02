@@ -307,7 +307,7 @@ def _main():
     parser.add_argument('circumstances',
                         help='file to which to write visit circumstances')
     if 'skybright' in sys.modules:
-        parser.add_argument('-s', '--skybright', 
+        parser.add_argument('-s', '--skybright',  default='',
                             help='Use the skybright package with this config file')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Print less information')
@@ -325,7 +325,7 @@ def _main():
         logging.basicConfig(format='%(asctime)s %(message)s',
                             level=logging.DEBUG)
 
-    if 'skybright' in sys.modules:
+    if 'skybright' in sys.modules and len(args.skybright)>0:
         skybright_config = ConfigParser()
         skybright_config.read(args.skybright)
     else:
