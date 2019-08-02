@@ -36,6 +36,11 @@ from lsst_conditions import calc_five_sigma_depth
 from lsst_conditions import SKY_DATA_PATH
 from lsst_conditions import DEFAULT_START_TIME
 
+try:
+    import skybright
+except ModuleNotFoundError:
+    pass
+
 # constants
 
 SUMMARYALLPROPS_TYPES = {
@@ -85,9 +90,10 @@ SUMMARYALLPROPS_TYPES = {
 
 
 def visit_circumstances(visits,
-                           site=EarthLocation.of_site('Cerro Pachon'),
-                           survey_start_time=DEFAULT_START_TIME,
-                           sky_data_path=SKY_DATA_PATH):
+                        site=EarthLocation.of_site('Cerro Pachon'),
+                        survey_start_time=DEFAULT_START_TIME,
+                        sky_data_path=SKY_DATA_PATH,
+                        skybright_config=None):
     """Calculate conditions for a set of visits.
 
     Args:
@@ -147,15 +153,16 @@ def visit_circumstances(visits,
     seeing = pd.DataFrame.from_items(
         zip(['fwhm500', 'fwhmGeom', 'fwhmEff'], seeing_array))
 
-    if 'sky' in visits:
-        info('Using sky brightness in the visits file')
-        sky_brightness = visits.sky.values
+    if skybright_config is not None:
+        info('Use skybright to calculate skybrightness')
+        calc_coord_brightness = skybright.MoonSkyModel(skybright_config)
     else:
         info('Looking up sky brightness')
         calc_coord_brightness = np.vectorize(
             SkyBrightnessSource(sky_data_path).coord_brightness)
-        sky_brightness = calc_coord_brightness(
-            visits.mjd, visits.ra, visits.decl, visits['filter'])
+
+    sky_brightness = calc_coord_brightness(
+        visits.mjd, visits.ra, visits.decl, visits['filter'])
 
     info('Looking up cloud level')
     cloud_source = np.vectorize(CloudSource(survey_start_time))
@@ -299,6 +306,9 @@ def _main():
     parser.add_argument('visits', help='file from which to read visits')
     parser.add_argument('circumstances',
                         help='file to which to write visit circumstances')
+    if 'skybright' in sys.modules:
+        parser.add_argument('-s', '--skybright', 
+                            help='Use the skybright package with this config file')
     parser.add_argument('-q', '--quiet', action='store_true',
                         help='Print less information')
     parser.add_argument('-v', '--verbose', action='store_true',
@@ -314,6 +324,12 @@ def _main():
     if args.verbose:
         logging.basicConfig(format='%(asctime)s %(message)s',
                             level=logging.DEBUG)
+
+    if 'skybright' in sys.modules:
+        skybright_config = ConfigParser()
+        skybright_config.read(args.skybright)
+    else:
+        skybright_config = None
 
     interactive = args.interactive
     visit_fname = args.visits
@@ -337,7 +353,8 @@ def _main():
         shell.interact()
     else:
         info("Scheduling followup visits")
-        circumstances = visit_circumstances(visits, site)
+        circumstances = visit_circumstances(
+            visits, site, skybright_config=skybright_config)
 
         info("Writing followup visits")
         _, extension = os.path.splitext(circumstances_fname)
