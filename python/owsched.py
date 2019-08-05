@@ -61,7 +61,7 @@ def overwrite_schedule(reference_schedule, replacement_sequences, gap=120):
 
     info("Combining %d subsequences" % len(subsequences))
 
-    if len(subsequences) > 10:
+    if len(subsequences) >= 48:
         group_size = int(len(subsequences)/48)
     else:
         group_size = 10
