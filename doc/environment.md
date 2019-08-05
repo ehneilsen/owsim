@@ -8,9 +8,6 @@ Fermilab is through cvmfs:
 bash --noprofile --norc
 source /cvmfs/sw.lsst.eu/linux-x86_64/lsst_sims/sims_w_2019_29/loadLSST.bash
 setup sims_featureScheduler
-OWSIM_DIR=/data/des70.a/data/$(whoami)/owsim ;# or wherever it is
-export PYTHONPATH=${OWSIM_DIR}/python:$PYTHONPATH
-export PYTHONPATH=$PYTHONPATH:/data/des70.a/data/neilsen/lsst_supplement
 ```
 
 Currently, ``owsim`` is not packaged as an eups package, so it needs
