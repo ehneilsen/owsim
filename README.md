@@ -105,7 +105,7 @@ done
 When all of these complete, the visits files can then be combined:
 
 ```
-cat <(head -1 visits_1.txt) <(cat visits_*.txt | sort -u) > visits.txt
+cat <(head -1 visits_1.txt) <(cat visits_*.txt | sort -u | grep -v start) > visits.txt
 ```
 
 
